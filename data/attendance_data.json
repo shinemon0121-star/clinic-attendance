@@ -1,0 +1,53 @@
+{
+  "records": [
+    {
+      "id": "2026-04-17-new",
+      "userId": "fujiwara",
+      "date": "2026-04-17",
+      "shiftType": "DAY",
+      "overtimeStart": "17:00",
+      "overtimeEnd": "19:51",
+      "overtimeDescription": "ME業務。心臓血管カテーテル業務",
+      "isHoliday": false
+    }
+  ],
+  "users": [
+    {
+      "id": "fujiwara",
+      "name": "藤原慎太郎",
+      "department": "CE（臨床工学部）",
+      "role": "ADMIN",
+      "joinedDate": "2022-03-15"
+    },
+    {
+      "id": "tsukahara",
+      "name": "塚原蓮々",
+      "department": "CE（臨床工学部）",
+      "role": "STAFF",
+      "joinedDate": "2024-04-01"
+    }
+  ],
+  "grants": [
+    {
+      "userId": "fujiwara",
+      "grantDate": "2024-10-01",
+      "grantAmount": 10,
+      "description": "入社6ヶ月",
+      "id": "grant-1776484031900-0"
+    },
+    {
+      "userId": "fujiwara",
+      "grantDate": "2025-10-01",
+      "grantAmount": 11,
+      "description": "入社1年6ヶ月",
+      "id": "grant-1776484031900-1"
+    },
+    {
+      "userId": "fujiwara",
+      "grantDate": "2026-04-18",
+      "grantAmount": -9,
+      "description": "手動調整",
+      "id": "grant-1776484481114"
+    }
+  ]
+}
