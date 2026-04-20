@@ -10,7 +10,7 @@ import {
   calculateSubstituteLeaveBalance,
   calculatePaidLeaveBalance,
 } from './utils/dateUtils';
-import { loadUsersFromDB, loadRecordsFromDB, loadGrantsFromDB, saveUsersToDB, saveRecordsToDB, saveGrantsToDB } from './utils/supabaseClient';
+import { loadUsersFromDB, loadRecordsFromDB, loadGrantsFromDB, saveUsersToDB, saveRecordsToDB, saveGrantsToDB, deleteRecord } from './utils/supabaseClient';
 import AttendanceTable from './components/AttendanceTable';
 import ClockPanel from './components/ClockPanel';
 import AdminPanel from './components/AdminPanel';
@@ -177,13 +177,24 @@ const App: React.FC = () => {
   };
 
   // 申請の取消（記録を削除して自動入力に戻す）
-  const handleDeleteRecord = () => {
+  const handleDeleteRecord = async () => {
     if (!editingData) return;
-    const uId = activeUserId.trim().toLowerCase();
-    const dateStr = formatDateLocal(editingData.date);
-    setAllRecords(prev => prev.filter(r => !(r.date === dateStr && r.userId === uId)));
-    setEditingData(null);
-    // 削除もシートに同期（空record的なもの - 実際はシートから手動削除が必要な場合あり）
+    try {
+      const uId = activeUserId.trim().toLowerCase();
+      const dateStr = formatDateLocal(editingData.date);
+      const recordToDelete = allRecords.find(r => r.date === dateStr && r.userId === uId);
+
+      if (recordToDelete?.id) {
+        await deleteRecord(recordToDelete.id);
+        console.log(`✅ レコード削除: ${recordToDelete.id}`);
+      }
+
+      setAllRecords(prev => prev.filter(r => !(r.date === dateStr && r.userId === uId)));
+      setEditingData(null);
+    } catch (e: any) {
+      console.error('❌ レコード削除エラー:', e);
+      alert(`❌ 削除失敗: ${e.message}`);
+    }
   };
 
   return (
