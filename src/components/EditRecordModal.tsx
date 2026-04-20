@@ -20,26 +20,34 @@ export default function EditRecordModal({ date, record, onSave, onDelete, onClos
   const defaultShift = record?.shiftType ?? (isRestDay ? ShiftType.HOLIDAY_WORK : ShiftType.DAY);
 
   const [shiftType, setShiftType] = useState<ShiftType>(defaultShift);
-  const [overtimeStart, setOvertimeStart] = useState(record?.overtimeStart ?? '');
+  const [overtimeStart, setOvertimeStart] = useState(record?.overtimeStart ?? '17:00');
   const [overtimeEnd, setOvertimeEnd] = useState(record?.overtimeEnd ?? '');
   const [overtimeDesc, setOvertimeDesc] = useState(record?.overtimeDescription ?? '');
 
   useEffect(() => {
     const s = record?.shiftType ?? (isDefaultRestDay(date) ? ShiftType.HOLIDAY_WORK : ShiftType.DAY);
     setShiftType(s);
-    setOvertimeStart(record?.overtimeStart ?? '');
+    setOvertimeStart(record?.overtimeStart ?? '17:00');
     setOvertimeEnd(record?.overtimeEnd ?? '');
     setOvertimeDesc(record?.overtimeDescription ?? '');
   }, [record, dateStr]);
 
   const handleSave = () => {
+    // overtimeEnd が空の場合、現在の時刻を自動入力
+    const finalOvertimeEnd = overtimeEnd || (() => {
+      const now = new Date();
+      const h = String(now.getHours()).padStart(2, '0');
+      const m = String(now.getMinutes()).padStart(2, '0');
+      return `${h}:${m}`;
+    })();
+
     const rec: AttendanceRecord = {
       id: record?.id ?? `${dateStr}-new`,
       userId: record?.userId ?? '',
       date: dateStr,
       shiftType,
       overtimeStart: overtimeStart || null,
-      overtimeEnd: overtimeEnd || null,
+      overtimeEnd: finalOvertimeEnd || null,
       overtimeDescription: overtimeDesc,
       isHoliday: isJapaneseHoliday(date),
     };
