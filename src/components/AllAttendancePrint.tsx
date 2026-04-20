@@ -122,6 +122,17 @@ export default function AllAttendancePrint({ users, allRecords, paidLeaveGrants,
                     ? (SHIFT_LABELS[rec.shiftType as ShiftType] ?? rec.shiftType)
                     : isRestDay ? '公休' : '日勤';
 
+                  // シフトタイプに応じた色を決定
+                  const getShiftColor = (shift: string | null): string => {
+                    if (shift === '公休') return '#dc2626'; // 赤
+                    if (shift === '日勤') return '#2563eb'; // 青
+                    if (rec?.shiftType === ShiftType.PAID_LEAVE || rec?.shiftType === ShiftType.HALF_PAID_LEAVE) return '#16a34a'; // 緑
+                    return '#000000'; // 黒
+                  };
+
+                  const shiftColor = getShiftColor(shiftLabel);
+                  const shiftFontWeight = (rec?.shiftType === ShiftType.PAID_LEAVE || rec?.shiftType === ShiftType.HALF_PAID_LEAVE) ? 'bold' : 'normal';
+
                   return (
                     <tr key={dateStr} style={rowStyle}>
                       <td className="border border-slate-400 px-1 py-0.5 text-center font-mono text-[8pt]">
@@ -130,7 +141,7 @@ export default function AllAttendancePrint({ users, allRecords, paidLeaveGrants,
                       <td className="border border-slate-400 px-1 py-0.5 text-center font-bold text-[8pt]" style={{ color: dowColor }}>
                         {getWeekdayLabel(d)}
                       </td>
-                      <td className="border border-slate-400 px-1 py-0.5 text-center text-[8pt]">
+                      <td className="border border-slate-400 px-1 py-0.5 text-center text-[8pt]" style={{ color: shiftColor, fontWeight: shiftFontWeight }}>
                         {shiftLabel}
                       </td>
                       <td className="border border-slate-400 px-1 py-0.5 text-center font-mono text-[8pt]">
