@@ -44,9 +44,7 @@ export async function loadGrantsFromDB() {
 }
 
 export async function saveUsersToDB(users: any[]) {
-  const { error } = await supabase.from('users').delete().neq('id', '');
-  if (error) throw error;
-  const { error: insertError } = await supabase.from('users').insert(
+  const { error } = await supabase.from('users').upsert(
     users.map(u => ({
       id: u.id,
       name: u.name,
@@ -55,13 +53,11 @@ export async function saveUsersToDB(users: any[]) {
       joined_date: u.joinedDate,
     }))
   );
-  if (insertError) throw insertError;
+  if (error) throw error;
 }
 
 export async function saveRecordsToDB(records: any[]) {
-  const { error } = await supabase.from('attendance_records').delete().neq('id', '');
-  if (error) throw error;
-  const { error: insertError } = await supabase.from('attendance_records').insert(
+  const { error } = await supabase.from('attendance_records').upsert(
     records.map(r => ({
       id: r.id,
       user_id: r.userId,
@@ -73,13 +69,11 @@ export async function saveRecordsToDB(records: any[]) {
       is_holiday: r.isHoliday,
     }))
   );
-  if (insertError) throw insertError;
+  if (error) throw error;
 }
 
 export async function saveGrantsToDB(grants: any[]) {
-  const { error } = await supabase.from('paid_leave_grants').delete().neq('id', '');
-  if (error) throw error;
-  const { error: insertError } = await supabase.from('paid_leave_grants').insert(
+  const { error } = await supabase.from('paid_leave_grants').upsert(
     grants.map(g => ({
       id: g.id,
       user_id: g.userId,
@@ -88,7 +82,7 @@ export async function saveGrantsToDB(grants: any[]) {
       description: g.description || '',
     }))
   );
-  if (insertError) throw insertError;
+  if (error) throw error;
 }
 
 export async function upsertRecord(record: any) {
