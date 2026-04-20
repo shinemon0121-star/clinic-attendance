@@ -9,6 +9,16 @@
       href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap"
       rel="stylesheet"
     />
+    <style>
+      @media print {
+        body { margin: 0; padding: 0; }
+        .attendance-table { font-size: 8pt; line-height: 1.2; }
+        .attendance-table table { width: 100%; border-collapse: collapse; }
+        .attendance-table th, .attendance-table td { padding: 2px 4px; border: 1px solid #000; }
+        .no-print { display: none !important; }
+        @page { margin: 0.5cm; size: A4 portrait; }
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

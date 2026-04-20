@@ -94,7 +94,6 @@ export default function AllAttendancePrint({ users, allRecords, paidLeaveGrants,
                   <th className="border border-slate-400 px-1 py-1 text-center w-14">時間外終了</th>
                   <th className="border border-slate-400 px-1 py-1 text-center w-12">通常残業</th>
                   <th className="border border-slate-400 px-1 py-1 text-center w-12">深夜残業</th>
-                  <th className="border border-slate-400 px-1 py-1 text-left">業務内容・備考</th>
                 </tr>
               </thead>
               <tbody>
@@ -146,9 +145,6 @@ export default function AllAttendancePrint({ users, allRecords, paidLeaveGrants,
                       <td className="border border-slate-400 px-1 py-0.5 text-center font-mono text-[8pt]">
                         {lo > 0 ? minutesToHHMM(lo) : ''}
                       </td>
-                      <td className="border border-slate-400 px-1 py-0.5 text-[8pt]">
-                        {rec?.overtimeDescription ?? ''}
-                      </td>
                     </tr>
                   );
                 })}
@@ -159,7 +155,9 @@ export default function AllAttendancePrint({ users, allRecords, paidLeaveGrants,
                   <td colSpan={2} className="border border-slate-600 px-1 py-1 text-right text-[8pt]">→</td>
                   <td className="border border-slate-600 px-1 py-1 text-center font-mono text-[8pt]">{minutesToHHMM(totalRegOt)}</td>
                   <td className="border border-slate-600 px-1 py-1 text-center font-mono text-[8pt]">{minutesToHHMM(totalLnOt)}</td>
-                  <td className="border border-slate-600 px-1 py-1 text-[8pt]">
+                </tr>
+                <tr style={{ backgroundColor: '#334155', color: 'white' }}>
+                  <td colSpan={7} className="border border-slate-600 px-2 py-1 text-[8pt]">
                     出勤{workDays}日 有給{paidDays}日 代休{subDays}日{holidayWorkDays > 0 ? ` 休出${holidayWorkDays}日` : ''}
                   </td>
                 </tr>

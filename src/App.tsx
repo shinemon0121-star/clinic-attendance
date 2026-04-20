@@ -301,7 +301,7 @@ const App: React.FC = () => {
         </div>
 
         {/* ── 勤務実績明細テーブル ── */}
-        <section className={`bg-white p-6 rounded-2xl shadow-sm border border-slate-200 print:p-0 print:border-none ${printTarget === 'OVERTIME_ORDER' ? 'print:hidden' : 'attendance-table'}`}>
+        <section className={`bg-white p-6 rounded-2xl shadow-sm border border-slate-200 print:p-2 print:border-none print:rounded-none print:shadow-none print:bg-white print:break-inside-avoid ${printTarget === 'OVERTIME_ORDER' ? 'print:hidden' : 'attendance-table'}`}>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 no-print">
             <div>
               <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
