@@ -9,16 +9,38 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// テーブル存在確認（デバッグ用）
+export async function checkTables() {
+  const { data, error } = await supabase
+    .from('information_schema.tables')
+    .select('table_name')
+    .eq('table_schema', 'public');
+  if (error) console.error('テーブル確認エラー:', error);
+  else console.log('✅ 既存テーブル:', data);
+}
+
 // データベース操作関数
 export async function loadUsersFromDB() {
   const { data, error } = await supabase.from('users').select('*');
-  if (error) throw error;
-  return data || [];
+  if (error) {
+    console.error('❌ loadUsersFromDB error:', error);
+    throw error;
+  }
+  return (data || []).map((u: any) => ({
+    id: u.id,
+    name: u.name,
+    department: u.department,
+    role: u.role,
+    joinedDate: u.joined_date,
+  }));
 }
 
 export async function loadRecordsFromDB() {
   const { data, error } = await supabase.from('attendance_records').select('*');
-  if (error) throw error;
+  if (error) {
+    console.error('❌ loadRecordsFromDB error:', error);
+    throw error;
+  }
   return (data || []).map((r: any) => ({
     id: r.id,
     userId: r.user_id,
@@ -33,7 +55,10 @@ export async function loadRecordsFromDB() {
 
 export async function loadGrantsFromDB() {
   const { data, error } = await supabase.from('paid_leave_grants').select('*');
-  if (error) throw error;
+  if (error) {
+    console.error('❌ loadGrantsFromDB error:', error);
+    throw error;
+  }
   return (data || []).map((g: any) => ({
     id: g.id,
     userId: g.user_id,
@@ -44,16 +69,25 @@ export async function loadGrantsFromDB() {
 }
 
 export async function saveUsersToDB(users: any[]) {
-  const { error } = await supabase.from('users').upsert(
-    users.map(u => ({
+  const usersToSave = users.map(u => {
+    if (!u.joinedDate) {
+      console.error(`❌ User ${u.id} has no joinedDate! This should not happen.`);
+      throw new Error(`User ${u.id} missing joinedDate`);
+    }
+    return {
       id: u.id,
       name: u.name,
       department: u.department,
       role: u.role,
       joined_date: u.joinedDate,
-    }))
-  );
-  if (error) throw error;
+    };
+  });
+  console.log('💾 Saving users:', usersToSave);
+  const { error } = await supabase.from('users').upsert(usersToSave);
+  if (error) {
+    console.error('❌ saveUsersToDB error:', error);
+    throw error;
+  }
 }
 
 export async function saveRecordsToDB(records: any[]) {
@@ -69,7 +103,10 @@ export async function saveRecordsToDB(records: any[]) {
       is_holiday: r.isHoliday,
     }))
   );
-  if (error) throw error;
+  if (error) {
+    console.error('❌ saveRecordsToDB error:', error);
+    throw error;
+  }
 }
 
 export async function saveGrantsToDB(grants: any[]) {
@@ -82,7 +119,10 @@ export async function saveGrantsToDB(grants: any[]) {
       description: g.description || '',
     }))
   );
-  if (error) throw error;
+  if (error) {
+    console.error('❌ saveGrantsToDB error:', error);
+    throw error;
+  }
 }
 
 export async function upsertRecord(record: any) {

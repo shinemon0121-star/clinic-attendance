@@ -9,6 +9,7 @@ interface Props {
   onAddUser: (name: string, dept: string, joined: string) => void;
   onUpdateUser: (user: User) => void;
   onResetData: () => void;
+  onResetUsers: () => void;
   settings: AppSettings;
   lastSyncTime: string | null;
   paidLeaveGrants: PaidLeaveGrant[];
@@ -28,6 +29,7 @@ export default function AdminPanel({
   onAddUser,
   onUpdateUser,
   onResetData,
+  onResetUsers,
   settings,
   lastSyncTime,
   paidLeaveGrants,
@@ -76,7 +78,7 @@ export default function AdminPanel({
     setGrantDesc('');
   };
 
-  const activeUser = users.find(u => u.id === activeUserId);
+  const activeUser = users.find(u => u.id === activeUserId) || users[0];
 
   const TABS: { id: Tab; label: string }[] = [
     { id: 'users', label: 'スタッフ' },
@@ -136,14 +138,14 @@ export default function AdminPanel({
               <div className="border border-slate-200 rounded-xl p-3 space-y-2">
                 <div className="text-xs font-bold text-slate-500">スタッフ情報編集</div>
                 <input
-                  value={editingUser?.name ?? activeUser.name}
-                  onChange={e => setEditingUser({ ...(editingUser ?? activeUser), name: e.target.value })}
+                  value={editingUser?.name ?? activeUser?.name ?? ''}
+                  onChange={e => setEditingUser({ ...(editingUser ?? activeUser!), name: e.target.value })}
                   className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs"
                   placeholder="氏名"
                 />
                 <input
-                  value={editingUser?.department ?? activeUser.department}
-                  onChange={e => setEditingUser({ ...(editingUser ?? activeUser), department: e.target.value })}
+                  value={editingUser?.department ?? activeUser?.department ?? ''}
+                  onChange={e => setEditingUser({ ...(editingUser ?? activeUser!), department: e.target.value })}
                   className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs"
                   placeholder="部署"
                 />
@@ -152,16 +154,16 @@ export default function AdminPanel({
                     <label className="text-[10px] font-bold text-slate-500 block mb-1">入社日</label>
                     <input
                       type="date"
-                      value={editingUser?.joinedDate ?? activeUser.joinedDate}
-                      onChange={e => setEditingUser({ ...(editingUser ?? activeUser), joinedDate: e.target.value })}
+                      value={editingUser?.joinedDate ?? activeUser?.joinedDate ?? ''}
+                      onChange={e => setEditingUser({ ...(editingUser ?? activeUser!), joinedDate: e.target.value })}
                       className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs"
                     />
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <select
-                    value={editingUser?.role ?? activeUser.role}
-                    onChange={e => setEditingUser({ ...(editingUser ?? activeUser), role: e.target.value as 'ADMIN' | 'STAFF' })}
+                    value={editingUser?.role ?? activeUser?.role ?? 'STAFF'}
+                    onChange={e => setEditingUser({ ...(editingUser ?? activeUser!), role: e.target.value as 'ADMIN' | 'STAFF' })}
                     className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-xs"
                   >
                     <option value="STAFF">スタッフ</option>
@@ -423,9 +425,19 @@ export default function AdminPanel({
               <div className="text-xs font-bold text-slate-500 mb-2">危険ゾーン</div>
               <button
                 onClick={onResetData}
-                className="w-full py-2 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 border border-red-200"
+                className="w-full py-2 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 border border-red-200 mb-2"
               >
                 勤務記録をリセット
+              </button>
+              <button
+                onClick={() => {
+                  if (window.confirm('ユーザーデータを初期化（正しい入社日で再投入）しますか？')) {
+                    onResetUsers();
+                  }
+                }}
+                className="w-full py-2 bg-orange-50 text-orange-600 rounded-lg text-xs font-bold hover:bg-orange-100 border border-orange-200"
+              >
+                ユーザーデータを初期化
               </button>
             </div>
           </div>

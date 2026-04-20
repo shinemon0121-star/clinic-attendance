@@ -20,30 +20,16 @@ import LeaveRequestPrint from './components/LeaveRequestPrint';
 import AllAttendancePrint from './components/AllAttendancePrint';
 
 const INITIAL_USERS: User[] = [
-  { id: 'fujiwara', name: '藤原慎太郎', department: 'CE（臨床工学部）', role: 'ADMIN', joinedDate: '2024-04-01' },
+  { id: 'fujiwara', name: '藤原慎太郎', department: 'CE（臨床工学部）', role: 'ADMIN', joinedDate: '2022-03-15' },
   { id: 'tsukahara', name: '塚原蓮々', department: 'CE（臨床工学部）', role: 'STAFF', joinedDate: '2024-04-01' },
 ];
 
 const App: React.FC = () => {
-  const [users, setUsers] = useState<User[]>(() => {
-    const saved = localStorage.getItem('clinic_users');
-    return saved ? JSON.parse(saved) : INITIAL_USERS;
-  });
-
-  const [activeUserId, setActiveUserId] = useState<string>(() => {
-    const saved = localStorage.getItem('clinic_active_user_id');
-    return saved || (INITIAL_USERS.length > 0 ? INITIAL_USERS[0].id : '');
-  });
-
-  const [allRecords, setAllRecords] = useState<AttendanceRecord[]>(() => {
-    const saved = localStorage.getItem('clinic_attendance_recs');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [paidLeaveGrants, setPaidLeaveGrants] = useState<PaidLeaveGrant[]>(() => {
-    const saved = localStorage.getItem('clinic_paid_leave_grants');
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Supabaseのみを使用。ローカルストレージは使わない（マルチデバイス対応）
+  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
+  const [activeUserId, setActiveUserId] = useState<string>(INITIAL_USERS[0]?.id || '');
+  const [allRecords, setAllRecords] = useState<AttendanceRecord[]>([]);
+  const [paidLeaveGrants, setPaidLeaveGrants] = useState<PaidLeaveGrant[]>([]);
 
   const [settings, setSettings] = useState<AppSettings>({ spreadsheetUrl: '', displaySpreadsheetUrl: '' });
 
@@ -81,17 +67,38 @@ const App: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [usersData, recordsData, grantsData] = await Promise.all([
+        console.log('🔄 Supabase からのロード開始...');
+        let [usersData, recordsData, grantsData] = await Promise.all([
           loadUsersFromDB(),
           loadRecordsFromDB(),
           loadGrantsFromDB(),
         ]);
-        if (usersData.length > 0) setUsers(usersData);
-        if (recordsData.length > 0) setAllRecords(recordsData);
-        if (grantsData.length > 0) setPaidLeaveGrants(grantsData);
+
+        // users が空の場合、初期ユーザーを投入
+        if (usersData.length === 0) {
+          console.log('⚠️ ユーザーが空です。初期ユーザーを投入します...');
+          await saveUsersToDB(INITIAL_USERS);
+          usersData = INITIAL_USERS;
+        }
+
+        console.log('✅ ロード成功:', { usersData: usersData.length, recordsData: recordsData.length, grantsData: grantsData.length });
+        setUsers(usersData);
+        setActiveUserId(usersData[0]?.id || '');
+        if (recordsData.length > 0) {
+          setAllRecords(recordsData);
+        }
+        if (grantsData.length > 0) {
+          setPaidLeaveGrants(grantsData);
+        }
         setFileStatus('saved');
-      } catch (e) {
-        console.error('❌ Supabase からのロード失敗:', e);
+      } catch (e: any) {
+        console.error('❌ Supabase からのロード失敗:', {
+          message: e?.message,
+          code: e?.code,
+          details: e?.details,
+          hint: e?.hint,
+          fullError: e
+        });
         setFileStatus('error');
       }
     };
@@ -113,9 +120,21 @@ const App: React.FC = () => {
       setLastSyncTime(new Date().toLocaleTimeString('ja-JP'));
       alert('✅ Supabase から最新データを取得しました。');
     } catch (e: any) {
-      alert(`❌ 取得失敗: ${e.message}`);
+      console.error('詳細エラー:', e);
+      alert(`❌ 取得失敗: ${JSON.stringify(e)}`);
     } finally {
       setIsSyncing(false);
+    }
+  }, []);
+
+  const resetUsers = useCallback(async () => {
+    try {
+      setUsers(INITIAL_USERS);
+      setActiveUserId(INITIAL_USERS[0].id);
+      alert('✅ ユーザーデータを初期化しました。Supabase に同期中...');
+    } catch (e: any) {
+      console.error('ユーザー初期化エラー:', e);
+      alert(`❌ 初期化失敗: ${e.message}`);
     }
   }, []);
 
@@ -262,6 +281,7 @@ const App: React.FC = () => {
                 setUsers(prev => prev.map(u => u.id === updated.id ? updated : u));
               }}
               onResetData={() => { if (window.confirm('勤務記録をリセットしますか？')) setAllRecords([]); }}
+              onResetUsers={resetUsers}
               settings={settings}
               lastSyncTime={lastSyncTime}
               paidLeaveGrants={paidLeaveGrants}
