@@ -18,6 +18,8 @@ import EditRecordModal from './components/EditRecordModal';
 import OvertimeOrderPrint from './components/OvertimeOrderPrint';
 import LeaveRequestPrint from './components/LeaveRequestPrint';
 import AllAttendancePrint from './components/AllAttendancePrint';
+import ApplicationFormPrint from './components/ApplicationFormPrint';
+import ApplicationFormsPrint from './components/ApplicationFormsPrint';
 
 const INITIAL_USERS: User[] = [
   { id: 'fujiwara', name: '藤原慎太郎', department: 'CE（臨床工学部）', role: 'ADMIN', joinedDate: '2022-03-15' },
@@ -37,7 +39,7 @@ const App: React.FC = () => {
   const [editingData, setEditingData] = useState<{ date: Date; record: AttendanceRecord | undefined } | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
-  const [printTarget, setPrintTarget] = useState<'ATTENDANCE' | 'OVERTIME_ORDER' | 'LEAVE_REQUEST' | 'ALL_ATTENDANCE'>('ATTENDANCE');
+  const [printTarget, setPrintTarget] = useState<'ATTENDANCE' | 'OVERTIME_ORDER' | 'LEAVE_REQUEST' | 'ALL_ATTENDANCE' | 'APPLICATION_FORM' | 'APPLICATION_FORMS'>('ATTENDANCE');
   const [selectedPrintRecord, setSelectedPrintRecord] = useState<AttendanceRecord | undefined>(undefined);
 
   const fileSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -159,7 +161,7 @@ const App: React.FC = () => {
     }
   }, [printTarget]);
 
-  const handlePrint = (target: 'ATTENDANCE' | 'OVERTIME_ORDER' | 'LEAVE_REQUEST' | 'ALL_ATTENDANCE', record?: AttendanceRecord) => {
+  const handlePrint = (target: 'ATTENDANCE' | 'OVERTIME_ORDER' | 'LEAVE_REQUEST' | 'ALL_ATTENDANCE' | 'APPLICATION_FORM' | 'APPLICATION_FORMS', record?: AttendanceRecord) => {
     setPrintTarget(target);
     if (record) setSelectedPrintRecord(record);
     setTimeout(() => window.print(), 300);
@@ -168,7 +170,9 @@ const App: React.FC = () => {
   // 申請の保存
   const handleSaveRecord = (rec: AttendanceRecord) => {
     const uId = activeUserId.trim().toLowerCase();
-    const updatedRec = { ...rec, userId: uId };
+    // IDが "-new" で終わる場合、ユーザーIDと日付を組み合わせてユニークなIDにする
+    const uniqueId = rec.id.endsWith('-new') ? `${uId}-${rec.date}` : rec.id;
+    const updatedRec = { ...rec, id: uniqueId, userId: uId };
     setAllRecords(prev => [
       ...prev.filter(r => !(r.date === rec.date && r.userId === uId)),
       updatedRec,
@@ -220,6 +224,9 @@ const App: React.FC = () => {
           <button onClick={() => handlePrint('OVERTIME_ORDER')} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 shadow-sm">
             命令簿 印刷
           </button>
+          <button onClick={() => handlePrint('APPLICATION_FORMS')} className="px-4 py-2 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 shadow-sm">
+            届出 印刷
+          </button>
           <button
             onClick={() => refreshData()}
             className={`px-4 py-2 bg-slate-800 text-white rounded-lg text-xs font-bold hover:bg-slate-900 ${isSyncing ? 'animate-pulse opacity-70' : ''}`}
@@ -247,6 +254,14 @@ const App: React.FC = () => {
 
       {printTarget === 'LEAVE_REQUEST' && (
         <LeaveRequestPrint user={activeUser!} record={selectedPrintRecord} />
+      )}
+
+      {printTarget === 'APPLICATION_FORM' && selectedPrintRecord && (
+        <ApplicationFormPrint user={activeUser!} record={selectedPrintRecord} />
+      )}
+
+      {printTarget === 'APPLICATION_FORMS' && (
+        <ApplicationFormsPrint users={users} allRecords={allRecords} />
       )}
 
       {printTarget === 'ALL_ATTENDANCE' && (
@@ -363,6 +378,7 @@ const App: React.FC = () => {
           onSave={handleSaveRecord}
           onDelete={handleDeleteRecord}
           onClose={() => setEditingData(null)}
+          onPrintApplicationForm={(rec) => handlePrint('APPLICATION_FORM', rec)}
         />
       )}
     </div>

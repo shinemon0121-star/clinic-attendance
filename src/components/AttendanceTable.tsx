@@ -1,4 +1,3 @@
-import React from 'react';
 import { AttendanceRecord, PaidLeaveGrant, ShiftType, SHIFT_LABELS, SHIFT_COLORS, User } from '../types';
 import {
   formatDateLocal,
@@ -22,6 +21,7 @@ interface Props {
 
 // 有給系（行を赤背景にする区分）
 const RED_SHIFTS = new Set([
+  ShiftType.PUBLIC_HOLIDAY,
   ShiftType.SUBSTITUTE_LEAVE,
   ShiftType.PAID_LEAVE,
   ShiftType.HALF_PAID_LEAVE,
@@ -33,6 +33,7 @@ const RED_SHIFTS = new Set([
 const WORK_SHIFTS = new Set([
   ShiftType.DAY,
   ShiftType.NIGHT,
+  ShiftType.DAY_AND_NIGHT,
   ShiftType.HOLIDAY_WORK,
   ShiftType.ON_CALL,
   ShiftType.TRAINING,
@@ -113,7 +114,14 @@ export default function AttendanceTable({
 
   const periodPaidUsed = paidLeaveDays + halfPaidLeaveDays * 0.5;
   const paidLeaveAfterPeriod = paidLeave.balance;
-  const publicRestDays = dates.filter(d => isDefaultRestDay(d)).length;
+  // 公休合計 = 元々公休日(水・日・祝)で記録なし + 手動で公休を選択した日
+  const publicRestDays = dates.filter(d => {
+    const dateStr = formatDateLocal(d);
+    const rec = recordMap.get(dateStr);
+    if (rec?.shiftType === ShiftType.PUBLIC_HOLIDAY) return true;
+    if (!isDefaultRestDay(d)) return false;
+    return !rec; // 記録がある＝別の区分に変更済みなので公休としてカウントしない
+  }).length;
   const totalOtMin = totalRegularOtMin + totalLateNightOtMin;
 
   return (
@@ -132,7 +140,7 @@ export default function AttendanceTable({
           value={publicRestDays}
           unit="日"
           sub="水・日・祝"
-          color="slate"
+          color="red"
         />
         <StatCard
           label="通常時間外"
@@ -173,17 +181,17 @@ export default function AttendanceTable({
       <div className="hidden print:block mb-4 text-xs border border-slate-300 rounded p-3">
         <div className="grid grid-cols-7 gap-3 text-center">
           {[
-            { label: '出勤日数',     value: `${workDays}日` },
-            { label: '公休合計',     value: `${publicRestDays}日` },
-            { label: '通常時間外',   value: minutesToHHMM(totalRegularOtMin) },
-            { label: '深夜時間外',   value: minutesToHHMM(totalLateNightOtMin) },
-            { label: '今月有給消化', value: `${periodPaidUsed}日` },
-            { label: '有給残高',     value: `${paidLeaveAfterPeriod}日` },
-            { label: '代休残高',     value: `${subLeaveBalance}日` },
+            { label: '出勤日数',     value: `${workDays}日`,                      color: '#1d4ed8' },
+            { label: '公休合計',     value: `${publicRestDays}日`,                color: '#dc2626' },
+            { label: '通常時間外',   value: minutesToHHMM(totalRegularOtMin),     color: '#4338ca' },
+            { label: '深夜時間外',   value: minutesToHHMM(totalLateNightOtMin),   color: '#7c3aed' },
+            { label: '今月有給消化', value: `${periodPaidUsed}日`,                color: '#0f766e' },
+            { label: '有給残高',     value: `${paidLeaveAfterPeriod}日`,          color: '#15803d' },
+            { label: '代休残高',     value: `${subLeaveBalance}日`,               color: '#dc2626' },
           ].map(item => (
             <div key={item.label} className="border border-slate-300 rounded p-1">
               <div className="text-[8pt] text-slate-500">{item.label}</div>
-              <div className="text-[11pt] font-black text-slate-800">{item.value}</div>
+              <div className="text-[11pt] font-black" style={{ color: item.color }}>{item.value}</div>
             </div>
           ))}
         </div>

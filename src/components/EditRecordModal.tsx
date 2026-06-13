@@ -8,48 +8,95 @@ interface Props {
   onSave: (rec: AttendanceRecord) => void;
   onDelete?: () => void;
   onClose: () => void;
+  onPrintApplicationForm?: (rec: AttendanceRecord) => void;
 }
 
 const ALL_SHIFTS = Object.values(ShiftType);
 
-export default function EditRecordModal({ date, record, onSave, onDelete, onClose }: Props) {
+// 申請書が必要な勤務区分
+const REQUIRES_APPLICATION = new Set([
+  ShiftType.PAID_LEAVE,
+  ShiftType.HALF_PAID_LEAVE,
+  ShiftType.SUBSTITUTE_LEAVE,
+  ShiftType.SPECIAL_LEAVE,
+  ShiftType.ILLNESS,
+  ShiftType.LATE,
+  ShiftType.EARLY_LEAVE,
+  ShiftType.ABSENCE,
+  ShiftType.OTHER,
+  // Note: PUBLIC_HOLIDAY is not included - it's a simple rest day marker
+]);
+
+export default function EditRecordModal({ date, record, onSave, onDelete, onClose, onPrintApplicationForm }: Props) {
   const dateStr = formatDateLocal(date);
   const isRestDay = isDefaultRestDay(date);
-
-  // 休日でレコードがない場合は休日出勤をデフォルトに、平日は日勤
   const defaultShift = record?.shiftType ?? (isRestDay ? ShiftType.HOLIDAY_WORK : ShiftType.DAY);
 
   const [shiftType, setShiftType] = useState<ShiftType>(defaultShift);
-  const [overtimeStart, setOvertimeStart] = useState(record?.overtimeStart ?? '17:00');
-  const [overtimeEnd, setOvertimeEnd] = useState(record?.overtimeEnd ?? '');
+  const getDefaultOvertimeStart = (shift: ShiftType) => {
+    if (shift === ShiftType.DAY_AND_NIGHT) return '08:30';
+    return '17:00';
+  };
+  const [overtimeStart, setOvertimeStart] = useState(record?.overtimeStart ?? getDefaultOvertimeStart(defaultShift));
+  const [overtimeEnd, setOvertimeEnd] = useState(record?.overtimeEnd ?? (defaultShift === ShiftType.DAY_AND_NIGHT ? '15:45' : ''));
   const [overtimeDesc, setOvertimeDesc] = useState(record?.overtimeDescription ?? '');
+
+  // 申請書用フィールド
+  const [applicationReason, setApplicationReason] = useState(record?.applicationReason ?? '');
+  const [applicationStartDate, setApplicationStartDate] = useState(record?.applicationStartDate ?? dateStr);
+  const [applicationEndDate, setApplicationEndDate] = useState(record?.applicationEndDate ?? dateStr);
+  const [applicationDurationType, setApplicationDurationType] = useState<'日数' | '時間'>(record?.applicationDurationType ?? '日数');
+  const [applicationDurationDays, setApplicationDurationDays] = useState(record?.applicationDurationDays ?? 1);
+  const [applicationStartTime, setApplicationStartTime] = useState(record?.applicationStartTime ?? '09:00');
+  const [applicationEndTime, setApplicationEndTime] = useState(record?.applicationEndTime ?? '17:00');
+  const [applicationOtherRemarks, setApplicationOtherRemarks] = useState(record?.applicationOtherRemarks ?? '');
 
   useEffect(() => {
     const s = record?.shiftType ?? (isDefaultRestDay(date) ? ShiftType.HOLIDAY_WORK : ShiftType.DAY);
     setShiftType(s);
-    setOvertimeStart(record?.overtimeStart ?? '17:00');
-    setOvertimeEnd(record?.overtimeEnd ?? '');
+    setOvertimeStart(record?.overtimeStart ?? getDefaultOvertimeStart(s));
+    setOvertimeEnd(record?.overtimeEnd ?? (s === ShiftType.DAY_AND_NIGHT ? '15:45' : ''));
     setOvertimeDesc(record?.overtimeDescription ?? '');
+    setApplicationReason(record?.applicationReason ?? '');
+    setApplicationStartDate(record?.applicationStartDate ?? dateStr);
+    setApplicationEndDate(record?.applicationEndDate ?? dateStr);
   }, [record, dateStr]);
 
+
+  const requiresApplication = REQUIRES_APPLICATION.has(shiftType);
+
+  const allowsOvertime = !requiresApplication && (
+    shiftType === ShiftType.DAY ||
+    shiftType === ShiftType.NIGHT ||
+    shiftType === ShiftType.DAY_AND_NIGHT ||
+    shiftType === ShiftType.ON_CALL
+  );
+
   const handleSave = () => {
-    // overtimeEnd が空の場合、現在の時刻を自動入力
-    const finalOvertimeEnd = overtimeEnd || (() => {
-      const now = new Date();
-      const h = String(now.getHours()).padStart(2, '0');
-      const m = String(now.getMinutes()).padStart(2, '0');
-      return `${h}:${m}`;
-    })();
+    if (requiresApplication && !applicationReason.trim()) {
+      alert('理由を入力してください');
+      return;
+    }
 
     const rec: AttendanceRecord = {
       id: record?.id ?? `${dateStr}-new`,
       userId: record?.userId ?? '',
       date: dateStr,
       shiftType,
-      overtimeStart: overtimeStart || null,
-      overtimeEnd: finalOvertimeEnd || null,
-      overtimeDescription: overtimeDesc,
+      overtimeStart: allowsOvertime ? (overtimeStart || null) : null,
+      overtimeEnd: allowsOvertime ? (overtimeEnd || null) : null,
+      overtimeDescription: allowsOvertime ? overtimeDesc : '',
       isHoliday: isJapaneseHoliday(date),
+      ...(requiresApplication && {
+        applicationReason,
+        applicationStartDate,
+        applicationEndDate,
+        applicationDurationType,
+        applicationDurationDays,
+        applicationStartTime,
+        applicationEndTime,
+        applicationOtherRemarks,
+      }),
     };
     onSave(rec);
   };
@@ -61,8 +108,8 @@ export default function EditRecordModal({ date, record, onSave, onDelete, onClos
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 my-4">
         <div className="flex items-center justify-between mb-5">
           <h3 className="font-black text-slate-800 text-lg">
             {dateStr.replace(/-/g, '/')} ({getWeekdayLabel(date)})
@@ -72,23 +119,26 @@ export default function EditRecordModal({ date, record, onSave, onDelete, onClos
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold">✕</button>
         </div>
 
-        {!record && (
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700 font-medium">
-            {isRestDay
-              ? '公休日への申請（休日出勤・代休等）です。'
-              : '通常日勤日への申請（時間外・有給等）です。変更が必要な場合のみ保存してください。'}
-          </div>
-        )}
-
-        <div className="space-y-4">
+        <div className="space-y-4 max-h-[70vh] overflow-y-auto">
           {/* 勤務区分 */}
           <div>
             <label className="text-xs font-bold text-slate-500 block mb-2">勤務区分</label>
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
               {ALL_SHIFTS.map(s => (
                 <button
                   key={s}
-                  onClick={() => setShiftType(s)}
+                  onClick={() => {
+                    if (s === shiftType) return; // 同じ区分は何もしない
+                    setShiftType(s);
+                    // 区分を切り替えた場合は時間外を空にする（手入力へ）
+                    if (s === ShiftType.DAY_AND_NIGHT) {
+                      setOvertimeStart('08:30');
+                      setOvertimeEnd('15:45');
+                    } else {
+                      setOvertimeStart('');
+                      setOvertimeEnd('');
+                    }
+                  }}
                   className={`text-xs py-1.5 px-2 rounded-lg font-bold border transition-all ${
                     shiftType === s
                       ? 'bg-blue-600 text-white border-blue-600'
@@ -101,39 +151,155 @@ export default function EditRecordModal({ date, record, onSave, onDelete, onClos
             </div>
           </div>
 
-          {/* 時間外 */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-bold text-slate-500 block mb-1.5">時間外開始時刻</label>
-              <input
-                type="time"
-                value={overtimeStart}
-                onChange={e => setOvertimeStart(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-500 block mb-1.5">時間外終了時刻</label>
-              <input
-                type="time"
-                value={overtimeEnd}
-                onChange={e => setOvertimeEnd(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-              />
-            </div>
-          </div>
+          {/* 時間外（日勤・夜勤・日勤+夜勤・オンコール） */}
+          {allowsOvertime && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-500 block mb-1.5">時間外開始時刻</label>
+                  {shiftType === ShiftType.DAY_AND_NIGHT ? (
+                    <div className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 flex items-center">
+                      {overtimeStart}
+                    </div>
+                  ) : (
+                    <input
+                      type="time"
+                      value={overtimeStart}
+                      onChange={e => setOvertimeStart(e.target.value)}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    />
+                  )}
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 block mb-1.5">時間外終了時刻</label>
+                  {shiftType === ShiftType.DAY_AND_NIGHT ? (
+                    <div className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 flex items-center">
+                      {overtimeEnd}
+                    </div>
+                  ) : (
+                    <input
+                      type="time"
+                      value={overtimeEnd}
+                      onChange={e => setOvertimeEnd(e.target.value)}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    />
+                  )}
+                </div>
+              </div>
 
-          {/* 業務内容・備考 */}
-          <div>
-            <label className="text-xs font-bold text-slate-500 block mb-1.5">業務内容・備考</label>
-            <textarea
-              value={overtimeDesc}
-              onChange={e => setOvertimeDesc(e.target.value)}
-              rows={3}
-              placeholder="例：緊急透析対応、翌日症例準備 など"
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
-            />
-          </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 block mb-1.5">業務内容・備考</label>
+                <textarea
+                  value={overtimeDesc}
+                  onChange={e => setOvertimeDesc(e.target.value)}
+                  rows={2}
+                  placeholder="例：緊急透析対応、翌日症例準備 など"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+                />
+              </div>
+            </>
+          )}
+
+          {/* 申請書必須フィールド */}
+          {requiresApplication && (
+            <>
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-bold text-slate-700 mb-3">申請書情報（必須）</h4>
+
+                {/* 理由 */}
+                <div className="mb-3">
+                  <label className="text-xs font-bold text-slate-500 block mb-1.5">理由 <span className="text-red-600">*</span></label>
+                  <textarea
+                    value={applicationReason}
+                    onChange={e => setApplicationReason(e.target.value)}
+                    rows={2}
+                    placeholder="申請理由を記入してください"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+                  />
+                </div>
+
+                {/* 期日タイプ選択 */}
+                <div className="mb-3">
+                  <label className="text-xs font-bold text-slate-500 block mb-1.5">期日タイプ</label>
+                  <div className="flex gap-3">
+                    {(['日数', '時間'] as const).map(type => (
+                      <label key={type} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="durationType"
+                          value={type}
+                          checked={applicationDurationType === type}
+                          onChange={e => setApplicationDurationType(e.target.value as '日数' | '時間')}
+                          className="w-4 h-4"
+                        />
+                        <span className="text-sm text-slate-700">{type}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 日数の場合 */}
+                {applicationDurationType === '日数' && (
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <label className="text-xs font-bold text-slate-500 block mb-1.5">開始日</label>
+                      <input
+                        type="date"
+                        value={applicationStartDate}
+                        onChange={e => setApplicationStartDate(e.target.value)}
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-500 block mb-1.5">終了日</label>
+                      <input
+                        type="date"
+                        value={applicationEndDate}
+                        onChange={e => setApplicationEndDate(e.target.value)}
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* 時間の場合 */}
+                {applicationDurationType === '時間' && (
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <label className="text-xs font-bold text-slate-500 block mb-1.5">開始時刻</label>
+                      <input
+                        type="time"
+                        value={applicationStartTime}
+                        onChange={e => setApplicationStartTime(e.target.value)}
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-500 block mb-1.5">終了時刻</label>
+                      <input
+                        type="time"
+                        value={applicationEndTime}
+                        onChange={e => setApplicationEndTime(e.target.value)}
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* その他特記事項 */}
+                <div>
+                  <label className="text-xs font-bold text-slate-500 block mb-1.5">その他特記事項</label>
+                  <textarea
+                    value={applicationOtherRemarks}
+                    onChange={e => setApplicationOtherRemarks(e.target.value)}
+                    rows={2}
+                    placeholder="あれば記入"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+                  />
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="flex gap-2 mt-6">
@@ -143,22 +309,47 @@ export default function EditRecordModal({ date, record, onSave, onDelete, onClos
           >
             申請保存
           </button>
+          {requiresApplication && applicationReason.trim() && onPrintApplicationForm && (
+            <button
+              onClick={() => {
+                const finalOvertimeEnd = overtimeEnd || (() => {
+                  const now = new Date();
+                  const h = String(now.getHours()).padStart(2, '0');
+                  const m = String(now.getMinutes()).padStart(2, '0');
+                  return `${h}:${m}`;
+                })();
+
+                const rec: AttendanceRecord = {
+                  id: record?.id ?? `${dateStr}-new`,
+                  userId: record?.userId ?? '',
+                  date: dateStr,
+                  shiftType,
+                  overtimeStart: overtimeStart || null,
+                  overtimeEnd: finalOvertimeEnd || null,
+                  overtimeDescription: overtimeDesc,
+                  isHoliday: isJapaneseHoliday(date),
+                  applicationReason,
+                  applicationStartDate,
+                  applicationEndDate,
+                  applicationDurationType,
+                  applicationDurationDays,
+                  applicationStartTime,
+                  applicationEndTime,
+                  applicationOtherRemarks,
+                };
+                onPrintApplicationForm(rec);
+              }}
+              className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 active:scale-95 transition-all"
+            >
+              申請書印刷
+            </button>
+          )}
           {record && (
             <button
               onClick={handleDelete}
               className="px-4 py-2.5 bg-red-50 text-red-600 rounded-xl text-sm font-bold hover:bg-red-100 active:scale-95 transition-all"
             >
               取消
-            </button>
-          )}
-          {record && (
-            <button
-              onClick={() => {
-                if (window.confirm('届出を印刷しますか？')) onClose();
-              }}
-              className="px-4 py-2.5 bg-green-50 text-green-700 rounded-xl text-sm font-bold hover:bg-green-100 active:scale-95 transition-all"
-            >
-              届出
             </button>
           )}
           <button
