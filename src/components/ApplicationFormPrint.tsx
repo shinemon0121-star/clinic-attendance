@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { AttendanceRecord, ShiftType, User } from '../types';
 import { formatDateLocal, getWeekdayLabel, parseAndFormatDate } from '../utils/dateUtils';
+import { generateSealImageCached } from '../utils/sealGenerator';
 
 interface Props {
   record: AttendanceRecord;
@@ -86,6 +87,17 @@ const KIND_LABELS: { code: string; label: string }[] = [
 ];
 
 export default function ApplicationFormPrint({ record, user, issuedAt }: Props) {
+  const [sealImage, setSealImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const seal = generateSealImageCached(user.name);
+      setSealImage(seal);
+    } catch (error) {
+      console.error('Failed to generate seal:', error);
+    }
+  }, [user.name]);
+
   const issuedDate = issuedAt ?? new Date();
   const todayReiwa = toReiwa(issuedDate.getFullYear());
   const todayMonth = issuedDate.getMonth() + 1;
@@ -159,7 +171,22 @@ export default function ApplicationFormPrint({ record, user, issuedAt }: Props) 
                 <td style={{ padding: '2mm 4mm', whiteSpace: 'nowrap' }}>氏名</td>
                 <td style={{ padding: '2mm 4mm', borderBottom: '1px solid #000', minWidth: '50mm', position: 'relative' }}>
                   {user.name}
-                  <span style={{ position: 'absolute', right: '2mm', top: '50%', transform: 'translateY(-50%)', fontSize: '13pt' }}>㊞</span>
+                  {sealImage ? (
+                    <img
+                      src={sealImage}
+                      alt="seal"
+                      style={{
+                        position: 'absolute',
+                        right: '1mm',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        width: '15mm',
+                        height: '15mm',
+                      }}
+                    />
+                  ) : (
+                    <span style={{ position: 'absolute', right: '2mm', top: '50%', transform: 'translateY(-50%)', fontSize: '13pt' }}>㊞</span>
+                  )}
                 </td>
               </tr>
             </tbody>
