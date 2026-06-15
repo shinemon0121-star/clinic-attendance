@@ -176,31 +176,28 @@ const App: React.FC = () => {
         return;
       }
 
-      // Electron API で PDF 保存
-      if (window.electronAPI) {
-        const htmlContent = attendanceTable.innerHTML;
-        const result = await window.electronAPI.savePDF(
-          htmlContent,
-          `${period.year}年${period.month}月度${activeUser?.name}出勤簿`,
-          activeUser?.name || 'unknown',
-          period.year,
-          period.month
-        );
+      // html2pdf を使用して PDF 生成
+      const element = attendanceTable as HTMLElement;
+      const fileName = `${period.year}年${period.month}月度${activeUser?.name}出勤簿`;
 
-        if (result.success) {
-          alert(result.message);
-        } else {
-          alert(`保存失敗: ${result.error}`);
-        }
+      const opt = {
+        margin: 10,
+        filename: `${fileName}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+      };
+
+      // @ts-ignore html2pdf のグローバル変数
+      if (window.html2pdf) {
+        await window.html2pdf().set(opt).from(element).save();
+        alert(`✅ PDF を保存しました:\n${fileName}.pdf\n\nダウンロードフォルダから、デスクトップの出勤簿記録フォルダに移動してください`);
       } else {
-        // Electron 環境でない場合は通常の印刷
-        alert('このアプリケーションを Electron で実行してください');
-      }
-
-      // 印刷ダイアログも表示
-      setTimeout(() => {
+        // Fallback: 通常の印刷ダイアログ
+        alert('PDFダウンロード機能を使用できません。ブラウザの印刷機能で「PDFとして保存」を選択してください');
         handlePrint('ATTENDANCE');
-      }, 500);
+      }
     } catch (error: any) {
       console.error('PDF 保存エラー:', error);
       alert(`エラー: ${error.message}`);
