@@ -80,7 +80,8 @@ export default function AttendanceTable({
   onPrintRequest,
 }: Props) {
   const recordMap = new Map(records.map(r => [r.date, r]));
-  const paidLeave = calculatePaidLeaveBalance(paidLeaveGrants, records, user.id);
+  const periodEndDate = dates.length > 0 ? dates[dates.length - 1] : new Date();
+  const paidLeave = calculatePaidLeaveBalance(paidLeaveGrants, records, user.id, periodEndDate);
 
   // ── 集計 ──────────────────────────────────────────────────────────────
   let totalRegularOtMin = 0;

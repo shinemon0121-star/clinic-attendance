@@ -222,19 +222,25 @@ export function calculateSubstituteLeaveBalance(
 export function calculatePaidLeaveBalance(
   grants: PaidLeaveGrant[],
   records: AttendanceRecord[],
-  userId: string
+  userId: string,
+  currentDate?: Date
 ): { total: number; used: number; balance: number } {
   const uid = userId.trim().toLowerCase();
-  const total = grants
-    .filter(g => g.userId?.trim().toLowerCase() === uid)
+  const reference = currentDate ?? new Date();
+
+  // 当月以前の付与のみを「残高計算対象」に含める
+  const grantedByNow = grants
+    .filter(g => g.userId?.trim().toLowerCase() === uid && g.grantDate <= formatDateLocal(reference))
     .reduce((sum, g) => sum + g.grantAmount, 0);
+
   const userRecs = records.filter(r => r.userId?.trim().toLowerCase() === uid);
   const used = userRecs.reduce((sum, r) => {
     if (r.shiftType === ShiftType.PAID_LEAVE) return sum + 1;
     if (r.shiftType === ShiftType.HALF_PAID_LEAVE) return sum + 0.5;
     return sum;
   }, 0);
-  return { total, used, balance: total - used };
+
+  return { total: grantedByNow, used, balance: grantedByNow - used };
 }
 
 // ─── 曜日ラベル ──────────────────────────────────────────────────────────────
