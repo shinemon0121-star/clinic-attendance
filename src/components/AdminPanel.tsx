@@ -80,6 +80,16 @@ export default function AdminPanel({
 
   const activeUser = users.find(u => u.id === activeUserId) || users[0];
 
+  // スタッフを並び替え：管理者がトップ、その後は入社年が古い順
+  const sortedUsers = [...users].sort((a, b) => {
+    // 管理者を最初に
+    if (a.role === 'ADMIN' && b.role !== 'ADMIN') return -1;
+    if (a.role !== 'ADMIN' && b.role === 'ADMIN') return 1;
+
+    // 同じロール内では入社年が古い順
+    return new Date(a.joinedDate).getTime() - new Date(b.joinedDate).getTime();
+  });
+
   const TABS: { id: Tab; label: string }[] = [
     { id: 'users', label: 'スタッフ' },
     { id: 'leave', label: '有給管理' },
@@ -112,7 +122,7 @@ export default function AdminPanel({
             <div>
               <div className="text-xs font-bold text-slate-500 mb-2">表示中のスタッフ</div>
               <div className="space-y-1">
-                {users.map(u => (
+                {sortedUsers.map(u => (
                   <button
                     key={u.id}
                     onClick={() => onSelectUser(u.id)}
@@ -242,7 +252,7 @@ export default function AdminPanel({
                   onChange={e => setGrantUserId(e.target.value)}
                   className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs"
                 >
-                  {users.map(u => (
+                  {sortedUsers.map(u => (
                     <option key={u.id} value={u.id}>{u.name}</option>
                   ))}
                 </select>
