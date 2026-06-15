@@ -167,7 +167,7 @@ const App: React.FC = () => {
     setTimeout(() => window.print(), 300);
   };
 
-  const handlePrintAndSavePDF = async () => {
+  const handlePrintAndSavePDF = () => {
     try {
       // 出勤簿テーブル要素を取得
       const attendanceTable = document.querySelector('.attendance-table');
@@ -176,30 +176,22 @@ const App: React.FC = () => {
         return;
       }
 
-      // html2pdf を使用して PDF 生成
-      const element = attendanceTable as HTMLElement;
-      const fileName = `${period.year}年${period.month}月度${activeUser?.name}出勤簿`;
+      // 出勤簿を画面に表示
+      setPrintTarget('ATTENDANCE');
 
-      const opt = {
-        margin: 10,
-        filename: `${fileName}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-      };
+      // 少し遅延させてから印刷ダイアログを開く
+      setTimeout(() => {
+        const fileName = `${period.year}年${period.month}月度${activeUser?.name}出勤簿`;
 
-      // @ts-ignore html2pdf のグローバル変数
-      if (window.html2pdf) {
-        await window.html2pdf().set(opt).from(element).save();
-        alert(`✅ PDF を保存しました:\n${fileName}.pdf\n\nダウンロードフォルダから、デスクトップの出勤簿記録フォルダに移動してください`);
-      } else {
-        // Fallback: 通常の印刷ダイアログ
-        alert('PDFダウンロード機能を使用できません。ブラウザの印刷機能で「PDFとして保存」を選択してください');
-        handlePrint('ATTENDANCE');
-      }
+        // ブラウザの印刷ダイアログを開く
+        // ユーザーが「PDFとして保存」を選択して手動保存
+        window.print();
+
+        // ユーザーへの案内メッセージ
+        alert(`📋 印刷ダイアログが開きました。\n\n【手順】\n1. 「行き先」で「PDFに保存」を選択\n2. 「保存」をクリック\n3. ファイル名を以下に変更：\n   ${fileName}\n4. ダウンロードフォルダに保存\n5. ファイルをデスクトップの\n   出勤簿記録\\${activeUser?.name}\\\n   フォルダに移動`);
+      }, 300);
     } catch (error: any) {
-      console.error('PDF 保存エラー:', error);
+      console.error('印刷エラー:', error);
       alert(`エラー: ${error.message}`);
     }
   };
