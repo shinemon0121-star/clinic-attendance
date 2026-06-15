@@ -11,10 +11,22 @@ interface Props {
 }
 
 export default function ApplicationFormsPrint({ users, allRecords, periodStartDate, periodEndDate }: Props) {
-  // 申請書が必要なレコード（applicationReasonが存在）をフィルタリング
-  let applicationRecords = allRecords.filter(
-    rec => rec.applicationReason && rec.applicationReason.trim().length > 0
-  );
+  // 申請書が必要なレコード（shiftTypeが申請対象）をフィルタリング
+  let applicationRecords = allRecords.filter(rec => {
+    // 申請の対象となる区分（有給、病気、特別、欠勤、遅刻、早退など）
+    const applicationShiftTypes = [
+      'PAID_LEAVE',
+      'HALF_PAID_LEAVE',
+      'ILLNESS',
+      'SPECIAL_LEAVE',
+      'ABSENCE',
+      'LATE',
+      'EARLY_LEAVE',
+      'SUBSTITUTE_LEAVE',
+      'OTHER',
+    ];
+    return applicationShiftTypes.includes(rec.shiftType);
+  });
 
   // 期間が指定されている場合は、その期間内のレコードのみをフィルタリング
   if (periodStartDate && periodEndDate) {
