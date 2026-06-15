@@ -39,21 +39,15 @@ export function generateSealImage(
   // 背景を透過に
   ctx.clearRect(0, 0, size, size);
 
-  // 外枠（円）を描画（赤い枠線）
+  // 外枠（円）を描画（赤い枠線のみ）
   ctx.strokeStyle = color;
   ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.arc(size / 2, size / 2, size / 2 - 2, 0, Math.PI * 2);
   ctx.stroke();
 
-  // 中身を赤く塗りつぶし
+  // テキスト（名字）を赤色で描画
   ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.arc(size / 2, size / 2, size / 2 - 5, 0, Math.PI * 2);
-  ctx.fill();
-
-  // テキスト（名字）を白色で描画
-  ctx.fillStyle = '#ffffff';
   ctx.font = `bold ${fontSize}px 'Arial', 'Hiragino Sans', sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
