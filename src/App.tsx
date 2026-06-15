@@ -167,6 +167,46 @@ const App: React.FC = () => {
     setTimeout(() => window.print(), 300);
   };
 
+  const handlePrintAndSavePDF = async () => {
+    try {
+      // 出勤簿テーブル要素を取得
+      const attendanceTable = document.querySelector('.attendance-table');
+      if (!attendanceTable) {
+        alert('出勤簿が見つかりません');
+        return;
+      }
+
+      // Electron API で PDF 保存
+      if (window.electronAPI) {
+        const htmlContent = attendanceTable.innerHTML;
+        const result = await window.electronAPI.savePDF(
+          htmlContent,
+          `${period.year}年${period.month}月度${activeUser?.name}出勤簿`,
+          activeUser?.name || 'unknown',
+          period.year,
+          period.month
+        );
+
+        if (result.success) {
+          alert(result.message);
+        } else {
+          alert(`保存失敗: ${result.error}`);
+        }
+      } else {
+        // Electron 環境でない場合は通常の印刷
+        alert('このアプリケーションを Electron で実行してください');
+      }
+
+      // 印刷ダイアログも表示
+      setTimeout(() => {
+        handlePrint('ATTENDANCE');
+      }, 500);
+    } catch (error: any) {
+      console.error('PDF 保存エラー:', error);
+      alert(`エラー: ${error.message}`);
+    }
+  };
+
   // 申請の保存
   const handleSaveRecord = (rec: AttendanceRecord) => {
     const uId = activeUserId.trim().toLowerCase();
@@ -215,8 +255,8 @@ const App: React.FC = () => {
           </span>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <button onClick={() => handlePrint('ATTENDANCE')} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 shadow-sm">
-            出勤簿（個人）
+          <button onClick={() => handlePrintAndSavePDF()} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 shadow-sm">
+            出勤簿（個人）💾
           </button>
           <button onClick={() => handlePrint('ALL_ATTENDANCE')} className="px-4 py-2 bg-blue-800 text-white rounded-lg text-xs font-bold hover:bg-blue-900 shadow-sm">
             出勤簿（全員）
