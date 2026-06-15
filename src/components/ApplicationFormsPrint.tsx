@@ -1,17 +1,29 @@
 import React from 'react';
 import { AttendanceRecord, User } from '../types';
+import { formatDateLocal } from '../utils/dateUtils';
 import ApplicationFormPrint from './ApplicationFormPrint';
 
 interface Props {
   users: User[];
   allRecords: AttendanceRecord[];
+  periodStartDate?: Date;
+  periodEndDate?: Date;
 }
 
-export default function ApplicationFormsPrint({ users, allRecords }: Props) {
+export default function ApplicationFormsPrint({ users, allRecords, periodStartDate, periodEndDate }: Props) {
   // 申請書が必要なレコード（applicationReasonが存在）をフィルタリング
-  const applicationRecords = allRecords.filter(
+  let applicationRecords = allRecords.filter(
     rec => rec.applicationReason && rec.applicationReason.trim().length > 0
   );
+
+  // 期間が指定されている場合は、その期間内のレコードのみをフィルタリング
+  if (periodStartDate && periodEndDate) {
+    const startStr = formatDateLocal(periodStartDate);
+    const endStr = formatDateLocal(periodEndDate);
+    applicationRecords = applicationRecords.filter(
+      rec => rec.date >= startStr && rec.date <= endStr
+    );
+  }
 
   // ユーザーごとにグループ化
   const recordsByUser = new Map<string, AttendanceRecord[]>();

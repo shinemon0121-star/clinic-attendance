@@ -290,7 +290,12 @@ const App: React.FC = () => {
       )}
 
       {printTarget === 'APPLICATION_FORMS' && (
-        <ApplicationFormsPrint users={users} allRecords={allRecords} />
+        <ApplicationFormsPrint
+          users={users}
+          allRecords={allRecords}
+          periodStartDate={period.startDate}
+          periodEndDate={period.endDate}
+        />
       )}
 
       {printTarget === 'ALL_ATTENDANCE' && (
