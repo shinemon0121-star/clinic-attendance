@@ -37,6 +37,7 @@ const WORK_SHIFTS = new Set([
   ShiftType.HOLIDAY_WORK,
   ShiftType.ON_CALL,
   ShiftType.TRAINING,
+  ShiftType.TRIP,
 ]);
 
 function StatCard({
