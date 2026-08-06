@@ -8,7 +8,6 @@ import {
   calcSplitOvertimeMinutes,
   minutesToHHMM,
   calculatePaidLeaveBalance,
-  calculateSubstituteLeaveBalance,
 } from '../utils/dateUtils';
 import { ShiftType, SHIFT_LABELS } from '../types';
 
@@ -34,6 +33,7 @@ const WORK_SHIFTS = new Set([
   ShiftType.HOLIDAY_WORK,
   ShiftType.ON_CALL,
   ShiftType.TRAINING,
+  ShiftType.TRIP,
 ]);
 
 export default function AllAttendancePrint({ users, allRecords, paidLeaveGrants, dates, period }: Props) {
@@ -45,7 +45,6 @@ export default function AllAttendancePrint({ users, allRecords, paidLeaveGrants,
         );
         const recordMap = new Map(records.map(r => [r.date, r]));
         const paidLeave = calculatePaidLeaveBalance(paidLeaveGrants, records, user.id);
-        const subLeaveBalance = calculateSubstituteLeaveBalance(allRecords, user.id);
 
         let totalRegOt = 0, totalLnOt = 0;
         let workDays = 0, paidDays = 0, subDays = 0, holidayWorkDays = 0;
@@ -80,7 +79,7 @@ export default function AllAttendancePrint({ users, allRecords, paidLeaveGrants,
               <span>期間：{formatDateLocal(period.startDate)} 〜 {formatDateLocal(period.endDate)}</span>
               <span>所属：{user.department}</span>
               <span>氏名：{user.name}</span>
-              <span>有給残：{paidLeave.balance}日　代休残：{subLeaveBalance}日</span>
+              <span>有給残：{paidLeave.balance}日　代休使用：{subDays}日</span>
             </div>
 
             {/* テーブル */}

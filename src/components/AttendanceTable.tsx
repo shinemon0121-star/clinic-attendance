@@ -13,7 +13,6 @@ interface Props {
   user: User;
   records: AttendanceRecord[];
   dates: Date[];
-  subLeaveBalance: number;
   paidLeaveGrants: PaidLeaveGrant[];
   onEditRequest: (date: Date, record: AttendanceRecord | undefined) => void;
   onPrintRequest: (record: AttendanceRecord) => void;
@@ -75,7 +74,6 @@ export default function AttendanceTable({
   user,
   records,
   dates,
-  subLeaveBalance,
   paidLeaveGrants,
   onEditRequest,
   onPrintRequest,
@@ -171,10 +169,9 @@ export default function AttendanceTable({
           color="green"
         />
         <StatCard
-          label="代休残高"
-          value={subLeaveBalance}
+          label="代休使用日数"
+          value={subLeaveDays}
           unit="日"
-          sub={subLeaveDays > 0 ? `今月取得 ${subLeaveDays}日` : undefined}
           color="red"
         />
       </div>
@@ -189,7 +186,7 @@ export default function AttendanceTable({
             { label: '深夜時間外',   value: minutesToHHMM(totalLateNightOtMin),   color: '#7c3aed' },
             { label: '今月有給消化', value: `${periodPaidUsed}日`,                color: '#0f766e' },
             { label: '有給残高',     value: `${paidLeaveAfterPeriod}日`,          color: '#15803d' },
-            { label: '代休残高',     value: `${subLeaveBalance}日`,               color: '#dc2626' },
+            { label: '代休使用日数', value: `${subLeaveDays}日`,                  color: '#dc2626' },
           ].map(item => (
             <div key={item.label} className="border border-slate-300 rounded p-1">
               <div className="text-[8pt] text-slate-500">{item.label}</div>

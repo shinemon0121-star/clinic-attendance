@@ -5,7 +5,6 @@ import { formatDateLocal, isDefaultRestDay, calculatePaidLeaveBalance } from '..
 interface Props {
   user: User;
   currentRecord: AttendanceRecord | undefined;
-  subLeaveBalance: number;
   paidLeaveGrants: PaidLeaveGrant[];
   allRecords: AttendanceRecord[];
   onOpenToday: () => void;
@@ -14,7 +13,6 @@ interface Props {
 export default function ClockPanel({
   user,
   currentRecord,
-  subLeaveBalance,
   paidLeaveGrants,
   allRecords,
   onOpenToday,
@@ -104,15 +102,11 @@ export default function ClockPanel({
       </div>
 
       {/* 休暇残高 */}
-      <div className="px-5 py-4 bg-slate-50 grid grid-cols-2 gap-3">
+      <div className="px-5 py-4 bg-slate-50">
         <div className="text-center">
           <div className="text-lg font-black text-slate-800">{paidLeave.balance}</div>
           <div className="text-[10px] text-slate-500 font-medium">有給残日数</div>
           <div className="text-[10px] text-slate-400">付与 {paidLeave.total} / 使用 {paidLeave.used}</div>
-        </div>
-        <div className="text-center border-l border-slate-200">
-          <div className="text-lg font-black text-slate-800">{subLeaveBalance}</div>
-          <div className="text-[10px] text-slate-500 font-medium">代休残日数</div>
         </div>
       </div>
     </div>

@@ -206,18 +206,6 @@ export function calcTotalOvertimeMinutes(records: AttendanceRecord[]): number {
   return records.reduce((sum, r) => sum + calcOvertimeMinutes(r.overtimeStart, r.overtimeEnd), 0);
 }
 
-// ─── 代休残高 ────────────────────────────────────────────────────────────────
-export function calculateSubstituteLeaveBalance(
-  records: AttendanceRecord[],
-  userId: string
-): number {
-  const uid = userId.trim().toLowerCase();
-  const userRecs = records.filter(r => r.userId?.trim().toLowerCase() === uid);
-  const earned = userRecs.filter(r => r.shiftType === ShiftType.HOLIDAY_WORK).length;
-  const used = userRecs.filter(r => r.shiftType === ShiftType.SUBSTITUTE_LEAVE).length;
-  return earned - used;
-}
-
 // ─── 有給残高 ────────────────────────────────────────────────────────────────
 export function calculatePaidLeaveBalance(
   grants: PaidLeaveGrant[],

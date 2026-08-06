@@ -7,7 +7,6 @@ import {
   parseAndFormatDate,
   isJapaneseHoliday,
   isDefaultRestDay,
-  calculateSubstituteLeaveBalance,
   calculatePaidLeaveBalance,
 } from './utils/dateUtils';
 import { loadUsersFromDB, loadRecordsFromDB, loadGrantsFromDB, saveUsersToDB, saveRecordsToDB, saveGrantsToDB, deleteRecord } from './utils/supabaseClient';
@@ -144,7 +143,6 @@ const App: React.FC = () => {
   const filteredRecords = allRecords.filter(r =>
     r.userId && r.userId.trim().toLowerCase() === activeUserId.trim().toLowerCase()
   );
-  const subLeaveBalance = calculateSubstituteLeaveBalance(allRecords, activeUserId);
   const todayStr = formatDateLocal(new Date());
   const todayRecord = filteredRecords.find(r => r.date === todayStr);
 
@@ -316,7 +314,6 @@ const App: React.FC = () => {
             <ClockPanel
               user={activeUser!}
               currentRecord={todayRecord}
-              subLeaveBalance={subLeaveBalance}
               paidLeaveGrants={paidLeaveGrants}
               allRecords={allRecords}
               onOpenToday={() => setEditingData({ date: new Date(), record: todayRecord })}
@@ -396,7 +393,6 @@ const App: React.FC = () => {
           <AttendanceTable
             user={activeUser!}
             records={filteredRecords}
-            subLeaveBalance={subLeaveBalance}
             paidLeaveGrants={paidLeaveGrants}
             dates={dates}
             onEditRequest={(date, record) => setEditingData({ date, record })}
