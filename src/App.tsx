@@ -1,13 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { AttendanceRecord, ShiftType, User, AppSettings, PaidLeaveGrant } from './types';
+import { AttendanceRecord, User, AppSettings, PaidLeaveGrant } from './types';
 import {
   getAttendancePeriod,
   getDatesInRange,
   formatDateLocal,
-  parseAndFormatDate,
-  isJapaneseHoliday,
-  isDefaultRestDay,
-  calculatePaidLeaveBalance,
 } from './utils/dateUtils';
 import { loadUsersFromDB, loadRecordsFromDB, loadGrantsFromDB, saveUsersToDB, saveRecordsToDB, saveGrantsToDB, deleteRecord } from './utils/supabaseClient';
 import AttendanceTable from './components/AttendanceTable';
