@@ -167,8 +167,10 @@ const App: React.FC = () => {
 
   const handlePrintAndSavePDF = () => {
     try {
-      // 出勤簿テーブル要素を取得
-      const attendanceTable = document.querySelector('.attendance-table');
+      // 出勤簿テーブル要素を取得（printTarget の状態に関わらず探す）
+      const mainElement = document.querySelector('main');
+      const sections = mainElement ? mainElement.querySelectorAll('section') : [];
+      const attendanceTable = sections.length > 0 ? sections[sections.length - 1] : null;
       if (!attendanceTable) {
         alert('出勤簿が見つかりません');
         return;
