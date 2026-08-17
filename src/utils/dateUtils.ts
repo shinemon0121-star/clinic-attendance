@@ -221,7 +221,10 @@ export function calculatePaidLeaveBalance(
     .filter(g => g.userId?.trim().toLowerCase() === uid && g.grantDate <= formatDateLocal(reference))
     .reduce((sum, g) => sum + g.grantAmount, 0);
 
-  const userRecs = records.filter(r => r.userId?.trim().toLowerCase() === uid);
+  const referenceStr = formatDateLocal(reference);
+  const userRecs = records.filter(
+    r => r.userId?.trim().toLowerCase() === uid && r.date <= referenceStr
+  );
   const used = userRecs.reduce((sum, r) => {
     if (r.shiftType === ShiftType.PAID_LEAVE) return sum + 1;
     if (r.shiftType === ShiftType.HALF_PAID_LEAVE) return sum + 0.5;
