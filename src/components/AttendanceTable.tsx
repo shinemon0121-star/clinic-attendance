@@ -190,21 +190,21 @@ export default function AttendanceTable({
       </div>
 
       {/* 印刷用サマリー */}
-      <div className="hidden print:block mb-4 text-xs border border-slate-300 rounded p-3">
-        <div className="grid grid-cols-8 gap-3 text-center">
+      <div className="hidden print:block mb-2 text-xs border border-slate-300 rounded p-2">
+        <div className="grid grid-cols-8 gap-2 text-center">
           {[
             { label: '出勤日数',     value: `${workDays}日`,                      color: '#1d4ed8' },
             { label: '公休合計',     value: `${publicRestDays}日`,                color: '#dc2626' },
             { label: '通常時間外',   value: minutesToHHMM(totalRegularOtMin),     color: '#4338ca' },
             { label: '深夜時間外',   value: minutesToHHMM(totalLateNightOtMin),   color: '#7c3aed' },
-            { label: '今月有給消化', value: `${periodPaidUsed}日`,                color: '#0f766e' },
+            { label: '有給消化',     value: `${periodPaidUsed}日`,                color: '#0f766e' },
             { label: '有給残高',     value: `${paidLeaveAfterPeriod}日`,          color: '#15803d' },
-            { label: '代休使用日数', value: `${subLeaveDays}日`,                  color: '#dc2626' },
-            { label: '時間休年間残枠', value: `${hourlyLeaveCap.remainingHours}時間`, color: '#047857' },
+            { label: '代休使用',     value: `${subLeaveDays}日`,                  color: '#dc2626' },
+            { label: '時間休残枠',   value: `${hourlyLeaveCap.remainingHours}h`,  color: '#047857' },
           ].map(item => (
             <div key={item.label} className="border border-slate-300 rounded p-1">
-              <div className="text-[8pt] text-slate-500">{item.label}</div>
-              <div className="text-[11pt] font-black" style={{ color: item.color }}>{item.value}</div>
+              <div className="text-[8pt] text-slate-500 whitespace-nowrap">{item.label}</div>
+              <div className="text-[11pt] font-black whitespace-nowrap" style={{ color: item.color }}>{item.value}</div>
             </div>
           ))}
         </div>
@@ -215,15 +215,15 @@ export default function AttendanceTable({
         <table className="w-full text-xs border-collapse">
           <thead>
             <tr className="bg-slate-100 text-slate-600">
-              <th className="border border-slate-200 px-2 py-2 text-center w-14">日付</th>
-              <th className="border border-slate-200 px-2 py-2 text-center w-7">曜</th>
-              <th className="border border-slate-200 px-2 py-2 text-center w-20">区分</th>
-              <th className="border border-slate-200 px-2 py-2 text-center w-20">時間外開始</th>
-              <th className="border border-slate-200 px-2 py-2 text-center w-20">時間外終了</th>
-              <th className="border border-slate-200 px-2 py-2 text-center w-20">通常残業</th>
-              <th className="border border-slate-200 px-2 py-2 text-center w-20">深夜残業</th>
+              <th className="border border-slate-200 px-2 py-2 print:py-1 text-center w-14">日付</th>
+              <th className="border border-slate-200 px-2 py-2 print:py-1 text-center w-7">曜</th>
+              <th className="border border-slate-200 px-2 py-2 print:py-1 text-center w-20">区分</th>
+              <th className="border border-slate-200 px-2 py-2 print:py-1 text-center w-20">時間外開始</th>
+              <th className="border border-slate-200 px-2 py-2 print:py-1 text-center w-20">時間外終了</th>
+              <th className="border border-slate-200 px-2 py-2 print:py-1 text-center w-20">通常残業</th>
+              <th className="border border-slate-200 px-2 py-2 print:py-1 text-center w-20">深夜残業</th>
               <th className="border border-slate-200 px-2 py-2 text-left no-print max-w-[80px]">業務内容・備考</th>
-              <th className="border border-slate-200 px-2 py-2 text-center no-print w-14">操作</th>
+              <th className="border border-slate-200 px-2 py-2 print:py-1 text-center no-print w-14">操作</th>
             </tr>
           </thead>
           <tbody>
@@ -260,14 +260,14 @@ export default function AttendanceTable({
 
               return (
                 <tr key={dateStr} className={`hover:brightness-95 ${rowBg}`}>
-                  <td className={`border border-slate-200 px-2 py-1.5 text-center font-mono ${today ? 'font-black text-blue-700' : ''}`}>
+                  <td className={`border border-slate-200 px-2 py-1.5 print:py-0.5 text-center font-mono ${today ? 'font-black text-blue-700' : ''}`}>
                     {dateStr.slice(5).replace('-', '/')}
                   </td>
-                  <td className={`border border-slate-200 px-2 py-1.5 text-center ${dowColor}`}>
+                  <td className={`border border-slate-200 px-2 py-1.5 print:py-0.5 text-center ${dowColor}`}>
                     {getWeekdayLabel(d)}
                   </td>
                   {/* 区分: 記録ありはそのまま表示、なしは自動表示（薄色） */}
-                  <td className="border border-slate-200 px-1 py-1.5 text-center">
+                  <td className="border border-slate-200 px-1 py-1.5 print:py-0.5 text-center">
                     {rec ? (
                       <>
                         <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${SHIFT_COLORS[rec.shiftType as ShiftType] ?? 'bg-slate-100 text-slate-600'}`}>
@@ -289,22 +289,22 @@ export default function AttendanceTable({
                       </span>
                     )}
                   </td>
-                  <td className="border border-slate-200 px-2 py-1.5 text-center font-mono">
+                  <td className="border border-slate-200 px-2 py-1.5 print:py-0.5 text-center font-mono">
                     {rec?.overtimeStart ?? <span className="text-slate-300">—</span>}
                   </td>
-                  <td className="border border-slate-200 px-2 py-1.5 text-center font-mono">
+                  <td className="border border-slate-200 px-2 py-1.5 print:py-0.5 text-center font-mono">
                     {rec?.overtimeEnd ?? <span className="text-slate-300">—</span>}
                   </td>
-                  <td className="border border-slate-200 px-2 py-1.5 text-center font-mono">
+                  <td className="border border-slate-200 px-2 py-1.5 print:py-0.5 text-center font-mono">
                     {regOt > 0 ? <span className="text-indigo-700 font-bold">{minutesToHHMM(regOt)}</span> : <span className="text-slate-300">—</span>}
                   </td>
-                  <td className="border border-slate-200 px-2 py-1.5 text-center font-mono">
+                  <td className="border border-slate-200 px-2 py-1.5 print:py-0.5 text-center font-mono">
                     {lnOt > 0 ? <span className="text-violet-700 font-bold">{minutesToHHMM(lnOt)}</span> : <span className="text-slate-300">—</span>}
                   </td>
-                  <td className="border border-slate-200 px-2 py-1.5 text-slate-500 no-print max-w-[160px] truncate">
+                  <td className="border border-slate-200 px-2 py-1.5 print:py-0.5 text-slate-500 no-print max-w-[160px] truncate">
                     {rec?.overtimeDescription || ''}
                   </td>
-                  <td className="border border-slate-200 px-1 py-1.5 text-center no-print">
+                  <td className="border border-slate-200 px-1 py-1.5 print:py-0.5 text-center no-print">
                     <div className="flex gap-1 justify-center">
                       <button
                         onClick={() => onEditRequest(d, rec)}

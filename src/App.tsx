@@ -280,9 +280,9 @@ const App: React.FC = () => {
 
       {/* 出勤簿 印刷ヘッダー */}
       {printTarget === 'ATTENDANCE' && (
-        <div className="print:block hidden attendance-table p-6">
-          <h1 className="text-2xl font-bold mb-4 text-center">出　勤　簿</h1>
-          <div className="flex justify-between mb-2 text-[10pt]">
+        <div className="print:block hidden attendance-table p-6 print:p-2">
+          <h1 className="text-2xl font-bold mb-4 print:mb-2 text-center">出　勤　簿</h1>
+          <div className="flex justify-between mb-2 print:mb-1 text-[10pt]">
             <div>期間：{formatDateLocal(period.startDate)} ～ {formatDateLocal(period.endDate)}</div>
             <div>所属：{activeUser?.department}</div>
             <div>氏名：{activeUser?.name}</div>
