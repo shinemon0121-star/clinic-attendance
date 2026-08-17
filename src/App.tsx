@@ -19,6 +19,7 @@ import ApplicationFormsPrint from './components/ApplicationFormsPrint';
 const INITIAL_USERS: User[] = [
   { id: 'fujiwara', name: '藤原慎太郎', department: 'CE（臨床工学部）', role: 'ADMIN', joinedDate: '2022-03-15' },
   { id: 'tsukahara', name: '塚原蓮々', department: 'CE（臨床工学部）', role: 'STAFF', joinedDate: '2024-04-01' },
+  { id: 'okuno', name: '奥野龍空', department: 'CE（臨床工学部）', role: 'STAFF', joinedDate: '2024-04-16' },
 ];
 
 const App: React.FC = () => {
