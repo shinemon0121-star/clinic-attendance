@@ -78,6 +78,7 @@ export interface AttendanceRecord {
   applicationStartTime?: string; // 開始時刻（午前/午後）
   applicationEndTime?: string; // 終了時刻（午前/午後）
   applicationOtherRemarks?: string; // その他特記事項
+  hourlyLeaveHours?: number | null; // 時間休（1〜7時間、日勤の日のみ）
 }
 
 export interface User {
@@ -98,6 +99,15 @@ export interface PaidLeaveGrant {
   userId: string;
   grantDate: string;
   grantAmount: number;
+  description: string;
+}
+
+// 時間単位の年次有給休暇（時間休）の付与記録。単位は「時間」
+export interface HourlyLeaveGrant {
+  id: string;
+  userId: string;
+  grantDate: string;
+  grantHours: number;
   description: string;
 }
 

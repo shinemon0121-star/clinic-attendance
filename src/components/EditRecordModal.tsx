@@ -51,6 +51,9 @@ export default function EditRecordModal({ date, record, onSave, onDelete, onClos
   const [applicationEndTime, setApplicationEndTime] = useState(record?.applicationEndTime ?? '17:00');
   const [applicationOtherRemarks, setApplicationOtherRemarks] = useState(record?.applicationOtherRemarks ?? '');
 
+  // 時間休（日勤の日のみ、1〜7時間）
+  const [hourlyLeaveHours, setHourlyLeaveHours] = useState<number | null>(record?.hourlyLeaveHours ?? null);
+
   useEffect(() => {
     const s = record?.shiftType ?? (isDefaultRestDay(date) ? ShiftType.HOLIDAY_WORK : ShiftType.DAY);
     setShiftType(s);
@@ -60,6 +63,7 @@ export default function EditRecordModal({ date, record, onSave, onDelete, onClos
     setApplicationReason(record?.applicationReason ?? '');
     setApplicationStartDate(record?.applicationStartDate ?? dateStr);
     setApplicationEndDate(record?.applicationEndDate ?? dateStr);
+    setHourlyLeaveHours(record?.hourlyLeaveHours ?? null);
   }, [record, dateStr]);
 
 
@@ -87,6 +91,7 @@ export default function EditRecordModal({ date, record, onSave, onDelete, onClos
       overtimeEnd: allowsOvertime ? (overtimeEnd || null) : null,
       overtimeDescription: allowsOvertime ? overtimeDesc : '',
       isHoliday: isJapaneseHoliday(date),
+      hourlyLeaveHours: shiftType === ShiftType.DAY ? hourlyLeaveHours : null,
       ...(requiresApplication && {
         applicationReason,
         applicationStartDate,
@@ -198,6 +203,45 @@ export default function EditRecordModal({ date, record, onSave, onDelete, onClos
                 />
               </div>
             </>
+          )}
+
+          {/* 時間休（日勤の日のみ、1〜7時間） */}
+          {shiftType === ShiftType.DAY && (
+            <div className="border-t pt-4">
+              <label className="text-xs font-bold text-slate-500 block mb-2">
+                時間休（取得する場合のみ選択・任意）
+              </label>
+              <div className="grid grid-cols-4 gap-1.5">
+                <button
+                  onClick={() => setHourlyLeaveHours(null)}
+                  className={`text-xs py-1.5 px-2 rounded-lg font-bold border transition-all ${
+                    hourlyLeaveHours === null
+                      ? 'bg-slate-700 text-white border-slate-700'
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'
+                  }`}
+                >
+                  なし
+                </button>
+                {[1, 2, 3, 4, 5, 6, 7].map(h => (
+                  <button
+                    key={h}
+                    onClick={() => setHourlyLeaveHours(h)}
+                    className={`text-xs py-1.5 px-2 rounded-lg font-bold border transition-all ${
+                      hourlyLeaveHours === h
+                        ? 'bg-teal-600 text-white border-teal-600'
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-teal-400'
+                    }`}
+                  >
+                    △{h}H
+                  </button>
+                ))}
+              </div>
+              {hourlyLeaveHours !== null && (
+                <p className="text-[10px] text-slate-400 mt-1.5">
+                  {hourlyLeaveHours}時間有休（{hourlyLeaveHours}有）として時間休残高から差し引かれます。1日1回のみ取得可能です。
+                </p>
+              )}
+            </div>
           )}
 
           {/* 申請書必須フィールド */}

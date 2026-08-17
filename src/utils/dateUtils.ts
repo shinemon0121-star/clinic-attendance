@@ -1,4 +1,4 @@
-import { AttendanceRecord, PaidLeaveGrant, ShiftType } from '../types';
+import { AttendanceRecord, PaidLeaveGrant, HourlyLeaveGrant, ShiftType } from '../types';
 
 // ─── 日本の祝日 ────────────────────────────────────────────────────────────────
 const JAPANESE_HOLIDAYS = new Set([
@@ -234,6 +234,28 @@ export function calculatePaidLeaveBalance(
   return { total: grantedByNow, used, balance: grantedByNow - used };
 }
 
+// ─── 時間休（時間単位有給）残高 ──────────────────────────────────────────────
+export function calculateHourlyLeaveBalance(
+  grants: HourlyLeaveGrant[],
+  records: AttendanceRecord[],
+  userId: string,
+  currentDate?: Date
+): { totalHours: number; usedHours: number; balanceHours: number } {
+  const uid = userId.trim().toLowerCase();
+  const reference = currentDate ?? new Date();
+  const referenceStr = formatDateLocal(reference);
+
+  const totalHours = grants
+    .filter(g => g.userId?.trim().toLowerCase() === uid && g.grantDate <= referenceStr)
+    .reduce((sum, g) => sum + g.grantHours, 0);
+
+  const usedHours = records
+    .filter(r => r.userId?.trim().toLowerCase() === uid && r.date <= referenceStr)
+    .reduce((sum, r) => sum + (r.hourlyLeaveHours ?? 0), 0);
+
+  return { totalHours, usedHours, balanceHours: totalHours - usedHours };
+}
+
 // ─── 曜日ラベル ──────────────────────────────────────────────────────────────
 const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
 export function getWeekdayLabel(date: Date): string {
@@ -291,6 +313,51 @@ export function calcAutoPaidLeaveGrants(joinedDate: string, today?: Date): AutoP
   while (m < 1200) {
     if (!addGrant(m, 20)) break;
     m += 12;
+  }
+
+  return result;
+}
+
+// ─── 時間休（時間単位有給）自動付与スケジュール ──────────────────────────────
+// 令和8年9月16日（2026-09-16）制度開始。年5日（40時間）を、
+// 各職員の有給起算日（入社+6ヶ月の月日、以後毎年同じ月日）に自動付与する。
+// 制度開始日から最初の起算日までの端数分は、案内文書の繰越表に基づき手動で調整する。
+export const HOURLY_LEAVE_SYSTEM_START = '2026-09-16';
+export const HOURLY_LEAVE_ANNUAL_HOURS = 40; // 5日 × 8時間
+
+export interface AutoHourlyLeaveGrant {
+  grantDate: string;   // 付与日（YYYY-MM-DD）
+  grantHours: number;  // 付与時間数
+  label: string;       // 表示ラベル
+}
+
+/** 入社日を基に、today までに付与されるべき時間休スケジュールを返す */
+export function calcAutoHourlyLeaveGrants(joinedDate: string, today?: Date): AutoHourlyLeaveGrant[] {
+  if (!joinedDate) return [];
+  const joined = new Date(joinedDate);
+  if (isNaN(joined.getTime())) return [];
+  const cutoff = today ?? new Date();
+  const systemStart = new Date(HOURLY_LEAVE_SYSTEM_START);
+
+  // 有給起算日（入社+6ヶ月の月日）
+  const base = new Date(joined);
+  base.setMonth(base.getMonth() + 6);
+
+  // 制度開始日以後の最初の起算日を探す
+  const anniversary = new Date(base);
+  while (anniversary < systemStart) {
+    anniversary.setFullYear(anniversary.getFullYear() + 1);
+  }
+
+  const result: AutoHourlyLeaveGrant[] = [];
+  const d = new Date(anniversary);
+  while (d <= cutoff) {
+    result.push({
+      grantDate: formatDateLocal(d),
+      grantHours: HOURLY_LEAVE_ANNUAL_HOURS,
+      label: `年次付与（${formatDateLocal(d)}）`,
+    });
+    d.setFullYear(d.getFullYear() + 1);
   }
 
   return result;

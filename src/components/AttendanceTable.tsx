@@ -1,4 +1,4 @@
-import { AttendanceRecord, PaidLeaveGrant, ShiftType, SHIFT_LABELS, SHIFT_COLORS, User } from '../types';
+import { AttendanceRecord, PaidLeaveGrant, HourlyLeaveGrant, ShiftType, SHIFT_LABELS, SHIFT_COLORS, User } from '../types';
 import {
   formatDateLocal,
   getWeekdayLabel,
@@ -7,6 +7,7 @@ import {
   calcSplitOvertimeMinutes,
   minutesToHHMM,
   calculatePaidLeaveBalance,
+  calculateHourlyLeaveBalance,
 } from '../utils/dateUtils';
 
 interface Props {
@@ -14,6 +15,7 @@ interface Props {
   records: AttendanceRecord[];
   dates: Date[];
   paidLeaveGrants: PaidLeaveGrant[];
+  hourlyLeaveGrants: HourlyLeaveGrant[];
   onEditRequest: (date: Date, record: AttendanceRecord | undefined) => void;
   onPrintRequest: (record: AttendanceRecord) => void;
 }
@@ -75,12 +77,14 @@ export default function AttendanceTable({
   records,
   dates,
   paidLeaveGrants,
+  hourlyLeaveGrants,
   onEditRequest,
   onPrintRequest,
 }: Props) {
   const recordMap = new Map(records.map(r => [r.date, r]));
   const periodEndDate = dates.length > 0 ? dates[dates.length - 1] : new Date();
   const paidLeave = calculatePaidLeaveBalance(paidLeaveGrants, records, user.id, periodEndDate);
+  const hourlyLeave = calculateHourlyLeaveBalance(hourlyLeaveGrants, records, user.id, periodEndDate);
 
   // ── 集計 ──────────────────────────────────────────────────────────────
   let totalRegularOtMin = 0;
@@ -90,6 +94,7 @@ export default function AttendanceTable({
   let paidLeaveDays = 0;
   let halfPaidLeaveDays = 0;
   let subLeaveDays = 0;
+  let periodHourlyLeaveHours = 0;
 
   dates.forEach(d => {
     const rec = recordMap.get(formatDateLocal(d));
@@ -109,6 +114,7 @@ export default function AttendanceTable({
       if (rec.shiftType === ShiftType.PAID_LEAVE)      paidLeaveDays++;
       if (rec.shiftType === ShiftType.HALF_PAID_LEAVE) halfPaidLeaveDays++;
       if (rec.shiftType === ShiftType.SUBSTITUTE_LEAVE) subLeaveDays++;
+      if (rec.hourlyLeaveHours) periodHourlyLeaveHours += rec.hourlyLeaveHours;
     }
   });
 
@@ -127,7 +133,7 @@ export default function AttendanceTable({
   return (
     <div>
       {/* ── サマリーカードグリッド ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-6 no-print">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 mb-6 no-print">
         <StatCard
           label="出勤日数"
           value={workDays}
@@ -174,11 +180,18 @@ export default function AttendanceTable({
           unit="日"
           color="red"
         />
+        <StatCard
+          label="時間休残高"
+          value={hourlyLeave.balanceHours}
+          unit="時間"
+          sub={`累計付与 ${hourlyLeave.totalHours}時間${periodHourlyLeaveHours > 0 ? ` / 今月使用 ${periodHourlyLeaveHours}時間` : ''}`}
+          color="emerald"
+        />
       </div>
 
       {/* 印刷用サマリー */}
       <div className="hidden print:block mb-4 text-xs border border-slate-300 rounded p-3">
-        <div className="grid grid-cols-7 gap-3 text-center">
+        <div className="grid grid-cols-8 gap-3 text-center">
           {[
             { label: '出勤日数',     value: `${workDays}日`,                      color: '#1d4ed8' },
             { label: '公休合計',     value: `${publicRestDays}日`,                color: '#dc2626' },
@@ -187,6 +200,7 @@ export default function AttendanceTable({
             { label: '今月有給消化', value: `${periodPaidUsed}日`,                color: '#0f766e' },
             { label: '有給残高',     value: `${paidLeaveAfterPeriod}日`,          color: '#15803d' },
             { label: '代休使用日数', value: `${subLeaveDays}日`,                  color: '#dc2626' },
+            { label: '時間休残高',   value: `${hourlyLeave.balanceHours}時間`,    color: '#047857' },
           ].map(item => (
             <div key={item.label} className="border border-slate-300 rounded p-1">
               <div className="text-[8pt] text-slate-500">{item.label}</div>
@@ -255,9 +269,16 @@ export default function AttendanceTable({
                   {/* 区分: 記録ありはそのまま表示、なしは自動表示（薄色） */}
                   <td className="border border-slate-200 px-1 py-1.5 text-center">
                     {rec ? (
-                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${SHIFT_COLORS[rec.shiftType as ShiftType] ?? 'bg-slate-100 text-slate-600'}`}>
-                        {SHIFT_LABELS[rec.shiftType as ShiftType] ?? rec.shiftType}
-                      </span>
+                      <>
+                        <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${SHIFT_COLORS[rec.shiftType as ShiftType] ?? 'bg-slate-100 text-slate-600'}`}>
+                          {SHIFT_LABELS[rec.shiftType as ShiftType] ?? rec.shiftType}
+                        </span>
+                        {rec.hourlyLeaveHours ? (
+                          <span className="inline-block ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700">
+                            △{rec.hourlyLeaveHours}H
+                          </span>
+                        ) : null}
+                      </>
                     ) : isRestDay ? (
                       <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-400">
                         公休
@@ -321,7 +342,7 @@ export default function AttendanceTable({
                 {minutesToHHMM(totalLateNightOtMin)}
               </td>
               <td colSpan={2} className="border border-slate-600 px-2 py-2 no-print text-xs">
-                出勤{workDays}日　公休{publicRestDays}日　有給{periodPaidUsed}日　代休{subLeaveDays}日{holidayWorkDays > 0 ? `　休出${holidayWorkDays}日` : ''}
+                出勤{workDays}日　公休{publicRestDays}日　有給{periodPaidUsed}日　代休{subLeaveDays}日{holidayWorkDays > 0 ? `　休出${holidayWorkDays}日` : ''}{periodHourlyLeaveHours > 0 ? `　時間休${periodHourlyLeaveHours}時間` : ''}
               </td>
             </tr>
           </tfoot>

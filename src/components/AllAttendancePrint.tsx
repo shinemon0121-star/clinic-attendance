@@ -1,5 +1,5 @@
 import React from 'react';
-import { AttendanceRecord, PaidLeaveGrant, User } from '../types';
+import { AttendanceRecord, PaidLeaveGrant, HourlyLeaveGrant, User } from '../types';
 import {
   formatDateLocal,
   getWeekdayLabel,
@@ -8,6 +8,7 @@ import {
   calcSplitOvertimeMinutes,
   minutesToHHMM,
   calculatePaidLeaveBalance,
+  calculateHourlyLeaveBalance,
 } from '../utils/dateUtils';
 import { ShiftType, SHIFT_LABELS } from '../types';
 
@@ -15,6 +16,7 @@ interface Props {
   users: User[];
   allRecords: AttendanceRecord[];
   paidLeaveGrants: PaidLeaveGrant[];
+  hourlyLeaveGrants: HourlyLeaveGrant[];
   dates: Date[];
   period: { year: number; month: number; startDate: Date; endDate: Date };
 }
@@ -36,7 +38,7 @@ const WORK_SHIFTS = new Set([
   ShiftType.TRIP,
 ]);
 
-export default function AllAttendancePrint({ users, allRecords, paidLeaveGrants, dates, period }: Props) {
+export default function AllAttendancePrint({ users, allRecords, paidLeaveGrants, hourlyLeaveGrants, dates, period }: Props) {
   return (
     <div className="print:block hidden font-['Noto_Sans_JP']">
       {users.map((user, userIndex) => {
@@ -45,9 +47,10 @@ export default function AllAttendancePrint({ users, allRecords, paidLeaveGrants,
         );
         const recordMap = new Map(records.map(r => [r.date, r]));
         const paidLeave = calculatePaidLeaveBalance(paidLeaveGrants, records, user.id);
+        const hourlyLeave = calculateHourlyLeaveBalance(hourlyLeaveGrants, records, user.id);
 
         let totalRegOt = 0, totalLnOt = 0;
-        let workDays = 0, paidDays = 0, subDays = 0, holidayWorkDays = 0;
+        let workDays = 0, paidDays = 0, subDays = 0, holidayWorkDays = 0, hourlyLeaveHoursUsed = 0;
 
         dates.forEach(d => {
           const rec = recordMap.get(formatDateLocal(d));
@@ -64,6 +67,7 @@ export default function AllAttendancePrint({ users, allRecords, paidLeaveGrants,
             if (rec.shiftType === ShiftType.HALF_PAID_LEAVE) paidDays += 0.5;
             if (rec.shiftType === ShiftType.SUBSTITUTE_LEAVE) subDays++;
             if (rec.shiftType === ShiftType.HOLIDAY_WORK) holidayWorkDays++;
+            if (rec.hourlyLeaveHours) hourlyLeaveHoursUsed += rec.hourlyLeaveHours;
           }
         });
 
@@ -79,7 +83,7 @@ export default function AllAttendancePrint({ users, allRecords, paidLeaveGrants,
               <span>期間：{formatDateLocal(period.startDate)} 〜 {formatDateLocal(period.endDate)}</span>
               <span>所属：{user.department}</span>
               <span>氏名：{user.name}</span>
-              <span>有給残：{paidLeave.balance}日　代休使用：{subDays}日</span>
+              <span>有給残：{paidLeave.balance}日　代休使用：{subDays}日　時間休残：{hourlyLeave.balanceHours}時間</span>
             </div>
 
             {/* テーブル */}
@@ -141,7 +145,7 @@ export default function AllAttendancePrint({ users, allRecords, paidLeaveGrants,
                         {getWeekdayLabel(d)}
                       </td>
                       <td className="border border-slate-400 px-1 py-0.5 text-center text-[8pt]" style={{ color: shiftColor, fontWeight: shiftFontWeight }}>
-                        {shiftLabel}
+                        {shiftLabel}{rec?.hourlyLeaveHours ? `／△${rec.hourlyLeaveHours}H` : ''}
                       </td>
                       <td className="border border-slate-400 px-1 py-0.5 text-center font-mono text-[8pt]">
                         {rec?.overtimeStart ?? ''}
@@ -168,7 +172,7 @@ export default function AllAttendancePrint({ users, allRecords, paidLeaveGrants,
                 </tr>
                 <tr style={{ backgroundColor: '#334155', color: 'white' }}>
                   <td colSpan={7} className="border border-slate-600 px-2 py-1 text-[8pt]">
-                    出勤{workDays}日 有給{paidDays}日 代休{subDays}日{holidayWorkDays > 0 ? ` 休出${holidayWorkDays}日` : ''}
+                    出勤{workDays}日 有給{paidDays}日 代休{subDays}日{holidayWorkDays > 0 ? ` 休出${holidayWorkDays}日` : ''}{hourlyLeaveHoursUsed > 0 ? ` 時間休${hourlyLeaveHoursUsed}時間` : ''}
                   </td>
                 </tr>
               </tfoot>

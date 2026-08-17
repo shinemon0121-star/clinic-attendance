@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { User, AppSettings, PaidLeaveGrant } from '../types';
-import { formatDateLocal, calcAutoPaidLeaveGrants } from '../utils/dateUtils';
+import { User, AppSettings, PaidLeaveGrant, HourlyLeaveGrant } from '../types';
+import { formatDateLocal, calcAutoPaidLeaveGrants, calcAutoHourlyLeaveGrants } from '../utils/dateUtils';
 
 interface Props {
   users: User[];
@@ -15,12 +15,15 @@ interface Props {
   paidLeaveGrants: PaidLeaveGrant[];
   onAddGrant: (grant: Omit<PaidLeaveGrant, 'id'>) => void;
   onBulkAddGrants: (grants: Omit<PaidLeaveGrant, 'id'>[]) => void;
+  hourlyLeaveGrants: HourlyLeaveGrant[];
+  onAddHourlyGrant: (grant: Omit<HourlyLeaveGrant, 'id'>) => void;
+  onBulkAddHourlyGrants: (grants: Omit<HourlyLeaveGrant, 'id'>[]) => void;
   onUpdateSettings: (s: AppSettings) => void;
   onBulkSync: () => void;
   onFetchFromSheet: () => void;
 }
 
-type Tab = 'users' | 'settings' | 'leave';
+type Tab = 'users' | 'settings' | 'leave' | 'hourlyLeave';
 
 export default function AdminPanel({
   users,
@@ -35,6 +38,9 @@ export default function AdminPanel({
   paidLeaveGrants,
   onAddGrant,
   onBulkAddGrants,
+  hourlyLeaveGrants,
+  onAddHourlyGrant,
+  onBulkAddHourlyGrants,
   onUpdateSettings,
   onBulkSync,
   onFetchFromSheet,
@@ -56,6 +62,11 @@ export default function AdminPanel({
   const [grantDate, setGrantDate] = useState(formatDateLocal(new Date()));
   const [grantAmount, setGrantAmount] = useState('');
   const [grantDesc, setGrantDesc] = useState('');
+
+  // Hourly leave grant form
+  const [hourlyGrantDate, setHourlyGrantDate] = useState(formatDateLocal(new Date()));
+  const [hourlyGrantAmount, setHourlyGrantAmount] = useState('');
+  const [hourlyGrantDesc, setHourlyGrantDesc] = useState('');
 
   const handleAddUser = () => {
     if (!newName.trim()) return;
@@ -93,6 +104,7 @@ export default function AdminPanel({
   const TABS: { id: Tab; label: string }[] = [
     { id: 'users', label: 'スタッフ' },
     { id: 'leave', label: '有給管理' },
+    { id: 'hourlyLeave', label: '時間休管理' },
     { id: 'settings', label: '設定' },
   ];
 
@@ -382,6 +394,173 @@ export default function AdminPanel({
                     setGrantDesc('');
                   }}
                   disabled={!grantAmount}
+                  className="w-full py-1.5 bg-slate-700 text-white rounded-lg text-xs font-bold disabled:opacity-40"
+                >
+                  調整を追加
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ─ 時間休管理タブ ─ */}
+        {tab === 'hourlyLeave' && (() => {
+          const targetUser = users.find(u => u.id === grantUserId) ?? users[0];
+          const autoGrants = targetUser?.joinedDate
+            ? calcAutoHourlyLeaveGrants(targetUser.joinedDate)
+            : [];
+          const recordedDates = new Set(
+            hourlyLeaveGrants
+              .filter(g => g.userId === targetUser?.id && g.description !== '手動調整')
+              .map(g => g.grantDate)
+          );
+          const missing = autoGrants.filter(g => !recordedDates.has(g.grantDate));
+
+          return (
+            <div className="space-y-4">
+              {/* スタッフ選択 */}
+              <div>
+                <label className="text-xs font-bold text-slate-500 block mb-1.5">対象スタッフ</label>
+                <select
+                  value={grantUserId}
+                  onChange={e => setGrantUserId(e.target.value)}
+                  className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs"
+                >
+                  {sortedUsers.map(u => (
+                    <option key={u.id} value={u.id}>{u.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="text-[10px] text-slate-400 bg-slate-50 rounded-lg px-3 py-2">
+                時間休制度は令和8年9月16日（2026-09-16）開始。年5日（40時間）を、各職員の有給起算日（入社+6ヶ月の月日）に毎年自動付与します。
+                制度開始日から最初の起算日までの繰越分は、案内文書の表に従って下の「手動調整」から入力してください。
+              </div>
+
+              {/* 自動付与スケジュール */}
+              <div className="border border-emerald-200 rounded-xl overflow-hidden">
+                <div className="bg-emerald-50 px-3 py-2 flex items-center justify-between">
+                  <div className="text-xs font-bold text-emerald-700">
+                    年次自動付与スケジュール
+                    {targetUser?.joinedDate && (
+                      <span className="ml-2 text-[10px] font-normal text-emerald-500">
+                        入社日: {targetUser.joinedDate}
+                      </span>
+                    )}
+                  </div>
+                  {missing.length > 0 && (
+                    <button
+                      onClick={() => {
+                        onBulkAddHourlyGrants(missing.map(g => ({
+                          userId: targetUser!.id,
+                          grantDate: g.grantDate,
+                          grantHours: g.grantHours,
+                          description: g.label,
+                        })));
+                      }}
+                      className="text-[10px] font-bold px-2 py-1 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+                    >
+                      未記録 {missing.length}件を追加
+                    </button>
+                  )}
+                </div>
+                {autoGrants.length === 0 ? (
+                  <div className="text-xs text-slate-400 text-center py-4">
+                    {targetUser?.joinedDate ? '付与予定なし（制度開始前）' : '入社日が未設定です'}
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100 max-h-44 overflow-y-auto">
+                    {autoGrants.map(g => {
+                      const recorded = recordedDates.has(g.grantDate);
+                      return (
+                        <div key={g.grantDate} className={`flex items-center justify-between px-3 py-1.5 text-xs ${recorded ? 'bg-white' : 'bg-amber-50'}`}>
+                          <div className="flex items-center gap-2">
+                            <span className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-black ${recorded ? 'bg-green-500 text-white' : 'bg-amber-400 text-white'}`}>
+                              {recorded ? '✓' : '!'}
+                            </span>
+                            <span className="text-slate-600">年次付与</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-right">
+                            <span className="text-slate-400">{g.grantDate}</span>
+                            <span className={`font-black ${recorded ? 'text-green-700' : 'text-amber-700'}`}>
+                              {g.grantHours}時間
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* 付与記録履歴 */}
+              <div>
+                <div className="text-xs font-bold text-slate-500 mb-1.5">付与・調整履歴（全スタッフ）</div>
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {hourlyLeaveGrants.length === 0 ? (
+                    <div className="text-xs text-slate-400 text-center py-3">記録なし</div>
+                  ) : (
+                    hourlyLeaveGrants.map(g => {
+                      const u = users.find(u => u.id === g.userId);
+                      return (
+                        <div key={g.id} className="flex items-center justify-between text-xs bg-slate-50 rounded-lg px-3 py-1.5">
+                          <div>
+                            <span className="font-bold text-slate-700">{u?.name ?? g.userId}</span>
+                            <span className="text-slate-400 ml-2">{g.grantDate}</span>
+                          </div>
+                          <div className="text-right flex items-center gap-1.5">
+                            <span className="font-black text-emerald-700">+{g.grantHours}時間</span>
+                            {g.description && <span className="text-slate-400 text-[10px]">{g.description}</span>}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* 手動調整フォーム */}
+              <div className="border border-dashed border-slate-300 rounded-xl p-3 space-y-2">
+                <div className="text-xs font-bold text-slate-500">手動調整（制度開始時の繰越・残時間の補正など）</div>
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    value={hourlyGrantDate}
+                    onChange={e => setHourlyGrantDate(e.target.value)}
+                    className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-xs"
+                  />
+                  <input
+                    type="number"
+                    value={hourlyGrantAmount}
+                    onChange={e => setHourlyGrantAmount(e.target.value)}
+                    placeholder="時間数"
+                    min="-99"
+                    step="1"
+                    className="w-20 border border-slate-200 rounded-lg px-2 py-1.5 text-xs"
+                  />
+                </div>
+                <input
+                  value={hourlyGrantDesc}
+                  onChange={e => setHourlyGrantDesc(e.target.value)}
+                  placeholder="摘要（例: 制度開始時繰越）"
+                  className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs"
+                />
+                <button
+                  onClick={() => {
+                    if (!hourlyGrantAmount || isNaN(parseFloat(hourlyGrantAmount))) {
+                      alert('時間数を入力してください');
+                      return;
+                    }
+                    onAddHourlyGrant({
+                      userId: grantUserId,
+                      grantDate: hourlyGrantDate,
+                      grantHours: parseFloat(hourlyGrantAmount),
+                      description: hourlyGrantDesc || '手動調整',
+                    });
+                    setHourlyGrantAmount('');
+                    setHourlyGrantDesc('');
+                  }}
+                  disabled={!hourlyGrantAmount}
                   className="w-full py-1.5 bg-slate-700 text-white rounded-lg text-xs font-bold disabled:opacity-40"
                 >
                   調整を追加

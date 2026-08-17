@@ -50,6 +50,7 @@ export async function loadRecordsFromDB() {
     overtimeEnd: r.overtime_end,
     overtimeDescription: r.overtime_description || '',
     isHoliday: r.is_holiday,
+    hourlyLeaveHours: r.hourly_leave_hours ?? null,
   }));
 }
 
@@ -64,6 +65,21 @@ export async function loadGrantsFromDB() {
     userId: g.user_id,
     grantDate: g.grant_date,
     grantAmount: g.grant_amount,
+    description: g.description || '',
+  }));
+}
+
+export async function loadHourlyLeaveGrantsFromDB() {
+  const { data, error } = await supabase.from('hourly_leave_grants').select('*');
+  if (error) {
+    console.error('❌ loadHourlyLeaveGrantsFromDB error:', error);
+    throw error;
+  }
+  return (data || []).map((g: any) => ({
+    id: g.id,
+    userId: g.user_id,
+    grantDate: g.grant_date,
+    grantHours: g.grant_hours,
     description: g.description || '',
   }));
 }
@@ -101,6 +117,7 @@ export async function saveRecordsToDB(records: any[]) {
       overtime_end: r.overtimeEnd || null,
       overtime_description: r.overtimeDescription || '',
       is_holiday: r.isHoliday,
+      hourly_leave_hours: r.hourlyLeaveHours ?? null,
     }))
   );
   if (error) {
@@ -125,6 +142,22 @@ export async function saveGrantsToDB(grants: any[]) {
   }
 }
 
+export async function saveHourlyLeaveGrantsToDB(grants: any[]) {
+  const { error } = await supabase.from('hourly_leave_grants').upsert(
+    grants.map(g => ({
+      id: g.id,
+      user_id: g.userId,
+      grant_date: g.grantDate,
+      grant_hours: g.grantHours || 0,
+      description: g.description || '',
+    }))
+  );
+  if (error) {
+    console.error('❌ saveHourlyLeaveGrantsToDB error:', error);
+    throw error;
+  }
+}
+
 export async function upsertRecord(record: any) {
   const { error } = await supabase.from('attendance_records').upsert({
     id: record.id,
@@ -135,6 +168,7 @@ export async function upsertRecord(record: any) {
     overtime_end: record.overtimeEnd || null,
     overtime_description: record.overtimeDescription || '',
     is_holiday: record.isHoliday,
+    hourly_leave_hours: record.hourlyLeaveHours ?? null,
   });
   if (error) throw error;
 }

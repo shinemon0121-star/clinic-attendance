@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { AttendanceRecord, User, AppSettings, PaidLeaveGrant } from './types';
+import { AttendanceRecord, User, AppSettings, PaidLeaveGrant, HourlyLeaveGrant } from './types';
 import {
   getAttendancePeriod,
   getDatesInRange,
   formatDateLocal,
 } from './utils/dateUtils';
-import { loadUsersFromDB, loadRecordsFromDB, loadGrantsFromDB, saveUsersToDB, saveRecordsToDB, saveGrantsToDB, deleteRecord } from './utils/supabaseClient';
+import {
+  loadUsersFromDB, loadRecordsFromDB, loadGrantsFromDB, loadHourlyLeaveGrantsFromDB,
+  saveUsersToDB, saveRecordsToDB, saveGrantsToDB, saveHourlyLeaveGrantsToDB, deleteRecord,
+} from './utils/supabaseClient';
 import AttendanceTable from './components/AttendanceTable';
 import ClockPanel from './components/ClockPanel';
 import AdminPanel from './components/AdminPanel';
@@ -28,6 +31,7 @@ const App: React.FC = () => {
   const [activeUserId, setActiveUserId] = useState<string>(INITIAL_USERS[0]?.id || '');
   const [allRecords, setAllRecords] = useState<AttendanceRecord[]>([]);
   const [paidLeaveGrants, setPaidLeaveGrants] = useState<PaidLeaveGrant[]>([]);
+  const [hourlyLeaveGrants, setHourlyLeaveGrants] = useState<HourlyLeaveGrant[]>([]);
 
   const [settings, setSettings] = useState<AppSettings>({ spreadsheetUrl: '', displaySpreadsheetUrl: '' });
 
@@ -54,6 +58,7 @@ const App: React.FC = () => {
           saveRecordsToDB(allRecords),
           saveUsersToDB(users),
           saveGrantsToDB(paidLeaveGrants),
+          saveHourlyLeaveGrantsToDB(hourlyLeaveGrants),
         ]);
         setFileStatus('saved');
         setLastSyncTime(new Date().toLocaleTimeString('ja-JP'));
@@ -62,17 +67,18 @@ const App: React.FC = () => {
         setFileStatus('error');
       }
     }, 500);
-  }, [allRecords, users, paidLeaveGrants, isDataLoaded]);
+  }, [allRecords, users, paidLeaveGrants, hourlyLeaveGrants, isDataLoaded]);
 
   // 起動時に Supabase からデータをロード
   useEffect(() => {
     const loadData = async () => {
       try {
         console.log('🔄 Supabase からのロード開始...');
-        let [usersData, recordsData, grantsData] = await Promise.all([
+        let [usersData, recordsData, grantsData, hourlyGrantsData] = await Promise.all([
           loadUsersFromDB(),
           loadRecordsFromDB(),
           loadGrantsFromDB(),
+          loadHourlyLeaveGrantsFromDB(),
         ]);
 
         // users が空の場合、初期ユーザーを投入
@@ -90,6 +96,9 @@ const App: React.FC = () => {
         }
         if (grantsData.length > 0) {
           setPaidLeaveGrants(grantsData);
+        }
+        if (hourlyGrantsData.length > 0) {
+          setHourlyLeaveGrants(hourlyGrantsData);
         }
         setFileStatus('saved');
       } catch (e: any) {
@@ -112,14 +121,16 @@ const App: React.FC = () => {
   const refreshData = useCallback(async () => {
     setIsSyncing(true);
     try {
-      const [usersData, recordsData, grantsData] = await Promise.all([
+      const [usersData, recordsData, grantsData, hourlyGrantsData] = await Promise.all([
         loadUsersFromDB(),
         loadRecordsFromDB(),
         loadGrantsFromDB(),
+        loadHourlyLeaveGrantsFromDB(),
       ]);
       setUsers(usersData);
       setAllRecords(recordsData);
       setPaidLeaveGrants(grantsData);
+      setHourlyLeaveGrants(hourlyGrantsData);
       setLastSyncTime(new Date().toLocaleTimeString('ja-JP'));
       alert('✅ Supabase から最新データを取得しました。');
     } catch (e: any) {
@@ -305,6 +316,7 @@ const App: React.FC = () => {
           users={users}
           allRecords={allRecords}
           paidLeaveGrants={paidLeaveGrants}
+          hourlyLeaveGrants={hourlyLeaveGrants}
           dates={dates}
           period={period}
         />
@@ -319,6 +331,7 @@ const App: React.FC = () => {
               user={activeUser!}
               currentRecord={todayRecord}
               paidLeaveGrants={paidLeaveGrants}
+              hourlyLeaveGrants={hourlyLeaveGrants}
               allRecords={allRecords}
               onOpenToday={() => setEditingData({ date: new Date(), record: todayRecord })}
             />
@@ -353,6 +366,15 @@ const App: React.FC = () => {
               onBulkAddGrants={(grants) => {
                 const newGrants = grants.map((g, i) => ({ ...g, id: `grant-${Date.now()}-${i}` }));
                 setPaidLeaveGrants(prev => [...prev, ...newGrants]);
+              }}
+              hourlyLeaveGrants={hourlyLeaveGrants}
+              onAddHourlyGrant={(g) => {
+                const newGrant = { ...g, id: `hourly-grant-${Date.now()}` };
+                setHourlyLeaveGrants(prev => [...prev, newGrant]);
+              }}
+              onBulkAddHourlyGrants={(grants) => {
+                const newGrants = grants.map((g, i) => ({ ...g, id: `hourly-grant-${Date.now()}-${i}` }));
+                setHourlyLeaveGrants(prev => [...prev, ...newGrants]);
               }}
               onUpdateSettings={setSettings}
               onBulkSync={() => alert('✅ 自動保存機能が有効です。変更は自動的に Supabase に同期されます。')}
@@ -398,6 +420,7 @@ const App: React.FC = () => {
             user={activeUser!}
             records={filteredRecords}
             paidLeaveGrants={paidLeaveGrants}
+            hourlyLeaveGrants={hourlyLeaveGrants}
             dates={dates}
             onEditRequest={(date, record) => setEditingData({ date, record })}
             onPrintRequest={(record) => handlePrint('LEAVE_REQUEST', record)}
