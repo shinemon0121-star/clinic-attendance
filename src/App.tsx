@@ -40,9 +40,12 @@ const App: React.FC = () => {
 
   const fileSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [fileStatus, setFileStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   // Supabase への自動同期（500ms デバウンス）
+  // 起動時の読み込みが終わるまでは保存しない（読み込み前の初期値で上書きしてしまうのを防ぐ）
   useEffect(() => {
+    if (!isDataLoaded) return;
     if (fileSaveTimer.current) clearTimeout(fileSaveTimer.current);
     setFileStatus('saving');
     fileSaveTimer.current = setTimeout(async () => {
@@ -59,7 +62,7 @@ const App: React.FC = () => {
         setFileStatus('error');
       }
     }, 500);
-  }, [allRecords, users, paidLeaveGrants]);
+  }, [allRecords, users, paidLeaveGrants, isDataLoaded]);
 
   // 起動時に Supabase からデータをロード
   useEffect(() => {
@@ -98,6 +101,8 @@ const App: React.FC = () => {
           fullError: e
         });
         setFileStatus('error');
+      } finally {
+        setIsDataLoaded(true);
       }
     };
     loadData();
