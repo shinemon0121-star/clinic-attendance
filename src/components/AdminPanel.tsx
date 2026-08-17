@@ -433,15 +433,17 @@ export default function AdminPanel({
               </div>
 
               <div className="text-[10px] text-slate-400 bg-slate-50 rounded-lg px-3 py-2">
-                時間休制度は令和8年9月16日（2026-09-16）開始。年5日（40時間）を、各職員の有給起算日（入社+6ヶ月の月日）に毎年自動付与します。
-                制度開始日から最初の起算日までの繰越分は、案内文書の表に従って下の「手動調整」から入力してください。
+                時間休は「有給休暇を1時間単位で取れる」制度です。別枠でもらえる休暇ではなく、<b>有給残高からそのまま差し引かれます</b>。
+                ここで設定するのは「有給のうち時間単位で取ってよい年間の上限（年5日＝40時間、毎年リセット）」です。
+                令和8年9月16日（2026-09-16）制度開始。各職員の有給起算日（入社+6ヶ月の月日）ごとに上限がリセットされます。
+                制度開始日から最初の起算日までは案内文書の表に従い、下の「手動調整」から上限時間数を入力してください。
               </div>
 
-              {/* 自動付与スケジュール */}
+              {/* 年度ごとの利用枠 */}
               <div className="border border-emerald-200 rounded-xl overflow-hidden">
                 <div className="bg-emerald-50 px-3 py-2 flex items-center justify-between">
                   <div className="text-xs font-bold text-emerald-700">
-                    年次自動付与スケジュール
+                    年度別 利用上限スケジュール
                     {targetUser?.joinedDate && (
                       <span className="ml-2 text-[10px] font-normal text-emerald-500">
                         入社日: {targetUser.joinedDate}
@@ -466,7 +468,7 @@ export default function AdminPanel({
                 </div>
                 {autoGrants.length === 0 ? (
                   <div className="text-xs text-slate-400 text-center py-4">
-                    {targetUser?.joinedDate ? '付与予定なし（制度開始前）' : '入社日が未設定です'}
+                    {targetUser?.joinedDate ? '対象年度なし（制度開始前）' : '入社日が未設定です'}
                   </div>
                 ) : (
                   <div className="divide-y divide-slate-100 max-h-44 overflow-y-auto">
@@ -478,12 +480,12 @@ export default function AdminPanel({
                             <span className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-black ${recorded ? 'bg-green-500 text-white' : 'bg-amber-400 text-white'}`}>
                               {recorded ? '✓' : '!'}
                             </span>
-                            <span className="text-slate-600">年次付与</span>
+                            <span className="text-slate-600">年度枠（{g.grantDate}〜）</span>
                           </div>
                           <div className="flex items-center gap-2 text-right">
                             <span className="text-slate-400">{g.grantDate}</span>
                             <span className={`font-black ${recorded ? 'text-green-700' : 'text-amber-700'}`}>
-                              {g.grantHours}時間
+                              上限{g.grantHours}時間
                             </span>
                           </div>
                         </div>
@@ -493,9 +495,9 @@ export default function AdminPanel({
                 )}
               </div>
 
-              {/* 付与記録履歴 */}
+              {/* 設定履歴 */}
               <div>
-                <div className="text-xs font-bold text-slate-500 mb-1.5">付与・調整履歴（全スタッフ）</div>
+                <div className="text-xs font-bold text-slate-500 mb-1.5">年度枠 設定履歴（全スタッフ）</div>
                 <div className="space-y-1 max-h-32 overflow-y-auto">
                   {hourlyLeaveGrants.length === 0 ? (
                     <div className="text-xs text-slate-400 text-center py-3">記録なし</div>
@@ -509,7 +511,7 @@ export default function AdminPanel({
                             <span className="text-slate-400 ml-2">{g.grantDate}</span>
                           </div>
                           <div className="text-right flex items-center gap-1.5">
-                            <span className="font-black text-emerald-700">+{g.grantHours}時間</span>
+                            <span className="font-black text-emerald-700">上限{g.grantHours}時間</span>
                             {g.description && <span className="text-slate-400 text-[10px]">{g.description}</span>}
                           </div>
                         </div>
@@ -521,7 +523,7 @@ export default function AdminPanel({
 
               {/* 手動調整フォーム */}
               <div className="border border-dashed border-slate-300 rounded-xl p-3 space-y-2">
-                <div className="text-xs font-bold text-slate-500">手動調整（制度開始時の繰越・残時間の補正など）</div>
+                <div className="text-xs font-bold text-slate-500">手動調整（年度枠の開始日と上限時間数を設定）</div>
                 <div className="flex gap-2">
                   <input
                     type="date"
@@ -542,7 +544,7 @@ export default function AdminPanel({
                 <input
                   value={hourlyGrantDesc}
                   onChange={e => setHourlyGrantDesc(e.target.value)}
-                  placeholder="摘要（例: 制度開始時繰越）"
+                  placeholder="摘要（例: 制度開始時の上限設定）"
                   className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs"
                 />
                 <button

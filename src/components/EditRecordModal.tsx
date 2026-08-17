@@ -238,7 +238,7 @@ export default function EditRecordModal({ date, record, onSave, onDelete, onClos
               </div>
               {hourlyLeaveHours !== null && (
                 <p className="text-[10px] text-slate-400 mt-1.5">
-                  {hourlyLeaveHours}時間有休（{hourlyLeaveHours}有）として時間休残高から差し引かれます。1日1回のみ取得可能です。
+                  {hourlyLeaveHours}時間有休（{hourlyLeaveHours}有）として、有給残高から{(hourlyLeaveHours / 8).toFixed(3).replace(/\.?0+$/, '')}日分が差し引かれます（年間上限あり）。1日1回のみ取得可能です。
                 </p>
               )}
             </div>

@@ -8,7 +8,7 @@ import {
   calcSplitOvertimeMinutes,
   minutesToHHMM,
   calculatePaidLeaveBalance,
-  calculateHourlyLeaveBalance,
+  calculateHourlyLeaveCapUsage,
 } from '../utils/dateUtils';
 import { ShiftType, SHIFT_LABELS } from '../types';
 
@@ -47,7 +47,7 @@ export default function AllAttendancePrint({ users, allRecords, paidLeaveGrants,
         );
         const recordMap = new Map(records.map(r => [r.date, r]));
         const paidLeave = calculatePaidLeaveBalance(paidLeaveGrants, records, user.id);
-        const hourlyLeave = calculateHourlyLeaveBalance(hourlyLeaveGrants, records, user.id);
+        const hourlyLeaveCap = calculateHourlyLeaveCapUsage(hourlyLeaveGrants, records, user.id);
 
         let totalRegOt = 0, totalLnOt = 0;
         let workDays = 0, paidDays = 0, subDays = 0, holidayWorkDays = 0, hourlyLeaveHoursUsed = 0;
@@ -70,6 +70,7 @@ export default function AllAttendancePrint({ users, allRecords, paidLeaveGrants,
             if (rec.hourlyLeaveHours) hourlyLeaveHoursUsed += rec.hourlyLeaveHours;
           }
         });
+        paidDays += hourlyLeaveHoursUsed / 8; // 時間休も有給消化として合算
 
         return (
           <div
@@ -83,7 +84,7 @@ export default function AllAttendancePrint({ users, allRecords, paidLeaveGrants,
               <span>期間：{formatDateLocal(period.startDate)} 〜 {formatDateLocal(period.endDate)}</span>
               <span>所属：{user.department}</span>
               <span>氏名：{user.name}</span>
-              <span>有給残：{paidLeave.balance}日　代休使用：{subDays}日　時間休残：{hourlyLeave.balanceHours}時間</span>
+              <span>有給残：{paidLeave.balance}日　代休使用：{subDays}日　時間休年間残枠：{hourlyLeaveCap.remainingHours}時間</span>
             </div>
 
             {/* テーブル */}

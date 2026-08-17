@@ -7,7 +7,7 @@ import {
   calcSplitOvertimeMinutes,
   minutesToHHMM,
   calculatePaidLeaveBalance,
-  calculateHourlyLeaveBalance,
+  calculateHourlyLeaveCapUsage,
 } from '../utils/dateUtils';
 
 interface Props {
@@ -84,7 +84,7 @@ export default function AttendanceTable({
   const recordMap = new Map(records.map(r => [r.date, r]));
   const periodEndDate = dates.length > 0 ? dates[dates.length - 1] : new Date();
   const paidLeave = calculatePaidLeaveBalance(paidLeaveGrants, records, user.id, periodEndDate);
-  const hourlyLeave = calculateHourlyLeaveBalance(hourlyLeaveGrants, records, user.id, periodEndDate);
+  const hourlyLeaveCap = calculateHourlyLeaveCapUsage(hourlyLeaveGrants, records, user.id, periodEndDate);
 
   // ── 集計 ──────────────────────────────────────────────────────────────
   let totalRegularOtMin = 0;
@@ -118,7 +118,7 @@ export default function AttendanceTable({
     }
   });
 
-  const periodPaidUsed = paidLeaveDays + halfPaidLeaveDays * 0.5;
+  const periodPaidUsed = paidLeaveDays + halfPaidLeaveDays * 0.5 + periodHourlyLeaveHours / 8;
   const paidLeaveAfterPeriod = paidLeave.balance;
   // 公休合計 = 元々公休日(水・日・祝)で記録なし + 手動で公休を選択した日
   const publicRestDays = dates.filter(d => {
@@ -181,10 +181,10 @@ export default function AttendanceTable({
           color="red"
         />
         <StatCard
-          label="時間休残高"
-          value={hourlyLeave.balanceHours}
+          label="時間休の年間残枠"
+          value={hourlyLeaveCap.remainingHours}
           unit="時間"
-          sub={`累計付与 ${hourlyLeave.totalHours}時間${periodHourlyLeaveHours > 0 ? ` / 今月使用 ${periodHourlyLeaveHours}時間` : ''}`}
+          sub={`上限${hourlyLeaveCap.capHours}時間中 ${hourlyLeaveCap.usedHours}時間使用（有給残高から差引済み）`}
           color="emerald"
         />
       </div>
@@ -200,7 +200,7 @@ export default function AttendanceTable({
             { label: '今月有給消化', value: `${periodPaidUsed}日`,                color: '#0f766e' },
             { label: '有給残高',     value: `${paidLeaveAfterPeriod}日`,          color: '#15803d' },
             { label: '代休使用日数', value: `${subLeaveDays}日`,                  color: '#dc2626' },
-            { label: '時間休残高',   value: `${hourlyLeave.balanceHours}時間`,    color: '#047857' },
+            { label: '時間休年間残枠', value: `${hourlyLeaveCap.remainingHours}時間`, color: '#047857' },
           ].map(item => (
             <div key={item.label} className="border border-slate-300 rounded p-1">
               <div className="text-[8pt] text-slate-500">{item.label}</div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AttendanceRecord, PaidLeaveGrant, HourlyLeaveGrant, ShiftType, SHIFT_LABELS, SHIFT_COLORS, User } from '../types';
-import { formatDateLocal, isDefaultRestDay, calculatePaidLeaveBalance, calculateHourlyLeaveBalance } from '../utils/dateUtils';
+import { formatDateLocal, isDefaultRestDay, calculatePaidLeaveBalance, calculateHourlyLeaveCapUsage } from '../utils/dateUtils';
 
 interface Props {
   user: User;
@@ -34,7 +34,7 @@ export default function ClockPanel({
   const effectiveShift: ShiftType | null = currentRecord?.shiftType ?? (isRestDay ? null : ShiftType.DAY);
 
   const paidLeave = calculatePaidLeaveBalance(paidLeaveGrants, allRecords, user.id);
-  const hourlyLeave = calculateHourlyLeaveBalance(hourlyLeaveGrants, allRecords, user.id);
+  const hourlyLeaveCap = calculateHourlyLeaveCapUsage(hourlyLeaveGrants, allRecords, user.id);
 
   // 今日に申請済みかどうか
   const hasRecord = !!currentRecord;
@@ -117,9 +117,9 @@ export default function ClockPanel({
           <div className="text-[10px] text-slate-400">付与 {paidLeave.total} / 使用 {paidLeave.used}</div>
         </div>
         <div className="text-center border-l border-slate-200">
-          <div className="text-lg font-black text-slate-800">{hourlyLeave.balanceHours}</div>
-          <div className="text-[10px] text-slate-500 font-medium">時間休残時間</div>
-          <div className="text-[10px] text-slate-400">付与 {hourlyLeave.totalHours} / 使用 {hourlyLeave.usedHours}</div>
+          <div className="text-lg font-black text-slate-800">{hourlyLeaveCap.remainingHours}</div>
+          <div className="text-[10px] text-slate-500 font-medium">時間休 年間残枠</div>
+          <div className="text-[10px] text-slate-400">上限{hourlyLeaveCap.capHours} / 使用{hourlyLeaveCap.usedHours}（有給残日数に含む）</div>
         </div>
       </div>
     </div>

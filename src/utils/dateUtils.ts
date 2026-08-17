@@ -225,35 +225,53 @@ export function calculatePaidLeaveBalance(
   const userRecs = records.filter(
     r => r.userId?.trim().toLowerCase() === uid && r.date <= referenceStr
   );
+  // 時間休（1〜7時間）も同じ有給休暇の消化として、時間を日数換算（8時間=1日）して差し引く
   const used = userRecs.reduce((sum, r) => {
-    if (r.shiftType === ShiftType.PAID_LEAVE) return sum + 1;
-    if (r.shiftType === ShiftType.HALF_PAID_LEAVE) return sum + 0.5;
-    return sum;
+    let u = 0;
+    if (r.shiftType === ShiftType.PAID_LEAVE) u += 1;
+    if (r.shiftType === ShiftType.HALF_PAID_LEAVE) u += 0.5;
+    if (r.hourlyLeaveHours) u += r.hourlyLeaveHours / 8;
+    return sum + u;
   }, 0);
 
   return { total: grantedByNow, used, balance: grantedByNow - used };
 }
 
-// ─── 時間休（時間単位有給）残高 ──────────────────────────────────────────────
-export function calculateHourlyLeaveBalance(
+// ─── 時間休（時間単位有給）の年間利用枠 ──────────────────────────────────────
+// 時間休は有給休暇そのものを1時間単位で取得する仕組みであり、別枠の残高ではない。
+// 「年5日（40時間）まで」は、有給残高のうち時間単位で取得できる上限（年度ごとにリセット）。
+export function calculateHourlyLeaveCapUsage(
   grants: HourlyLeaveGrant[],
   records: AttendanceRecord[],
   userId: string,
   currentDate?: Date
-): { totalHours: number; usedHours: number; balanceHours: number } {
+): { capHours: number; usedHours: number; remainingHours: number; yearStart: string | null } {
   const uid = userId.trim().toLowerCase();
   const reference = currentDate ?? new Date();
   const referenceStr = formatDateLocal(reference);
 
-  const totalHours = grants
+  // 現在の基準日が属する年度の上限（最新の年度開始日の枠）を採用
+  const userGrants = grants
     .filter(g => g.userId?.trim().toLowerCase() === uid && g.grantDate <= referenceStr)
-    .reduce((sum, g) => sum + g.grantHours, 0);
+    .sort((a, b) => a.grantDate.localeCompare(b.grantDate));
+
+  if (userGrants.length === 0) {
+    return { capHours: 0, usedHours: 0, remainingHours: 0, yearStart: null };
+  }
+
+  const currentYearGrant = userGrants[userGrants.length - 1];
+  const yearStart = currentYearGrant.grantDate;
 
   const usedHours = records
-    .filter(r => r.userId?.trim().toLowerCase() === uid && r.date <= referenceStr)
+    .filter(r => r.userId?.trim().toLowerCase() === uid && r.date >= yearStart && r.date <= referenceStr)
     .reduce((sum, r) => sum + (r.hourlyLeaveHours ?? 0), 0);
 
-  return { totalHours, usedHours, balanceHours: totalHours - usedHours };
+  return {
+    capHours: currentYearGrant.grantHours,
+    usedHours,
+    remainingHours: currentYearGrant.grantHours - usedHours,
+    yearStart,
+  };
 }
 
 // ─── 曜日ラベル ──────────────────────────────────────────────────────────────
@@ -318,20 +336,21 @@ export function calcAutoPaidLeaveGrants(joinedDate: string, today?: Date): AutoP
   return result;
 }
 
-// ─── 時間休（時間単位有給）自動付与スケジュール ──────────────────────────────
-// 令和8年9月16日（2026-09-16）制度開始。年5日（40時間）を、
-// 各職員の有給起算日（入社+6ヶ月の月日、以後毎年同じ月日）に自動付与する。
-// 制度開始日から最初の起算日までの端数分は、案内文書の繰越表に基づき手動で調整する。
+// ─── 時間休（時間単位有給）の年間上限スケジュール ────────────────────────────
+// 時間休は「有給休暇を時間単位で取れる」制度であり、別枠で日数がもらえるわけではない。
+// ここで計算するのは、有給残高のうち時間単位で取得してよい「年間の上限（年5日=40時間、毎年リセット）」。
+// 令和8年9月16日（2026-09-16）制度開始。各職員の有給起算日（入社+6ヶ月の月日、以後毎年同じ月日）で
+// 年度が切り替わり、上限がリセットされる。
 export const HOURLY_LEAVE_SYSTEM_START = '2026-09-16';
 export const HOURLY_LEAVE_ANNUAL_HOURS = 40; // 5日 × 8時間
 
 export interface AutoHourlyLeaveGrant {
-  grantDate: string;   // 付与日（YYYY-MM-DD）
-  grantHours: number;  // 付与時間数
+  grantDate: string;   // 年度開始日（YYYY-MM-DD）＝この日から次の年度開始日まで上限が適用される
+  grantHours: number;  // その年度の上限時間数
   label: string;       // 表示ラベル
 }
 
-/** 入社日を基に、today までに付与されるべき時間休スケジュールを返す */
+/** 入社日を基に、today までに切り替わった時間休の年度（上限リセット時期）一覧を返す */
 export function calcAutoHourlyLeaveGrants(joinedDate: string, today?: Date): AutoHourlyLeaveGrant[] {
   if (!joinedDate) return [];
   const joined = new Date(joinedDate);
