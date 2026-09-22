@@ -14,6 +14,7 @@ import ClockPanel from './components/ClockPanel';
 import AdminPanel from './components/AdminPanel';
 import EditRecordModal from './components/EditRecordModal';
 import OvertimeOrderPrint from './components/OvertimeOrderPrint';
+import AllOvertimeOrderPrint from './components/AllOvertimeOrderPrint';
 import LeaveRequestPrint from './components/LeaveRequestPrint';
 import AllAttendancePrint from './components/AllAttendancePrint';
 import ApplicationFormPrint from './components/ApplicationFormPrint';
@@ -39,7 +40,7 @@ const App: React.FC = () => {
   const [editingData, setEditingData] = useState<{ date: Date; record: AttendanceRecord | undefined } | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
-  const [printTarget, setPrintTarget] = useState<'ATTENDANCE' | 'OVERTIME_ORDER' | 'LEAVE_REQUEST' | 'ALL_ATTENDANCE' | 'APPLICATION_FORM' | 'APPLICATION_FORMS'>('ATTENDANCE');
+  const [printTarget, setPrintTarget] = useState<'ATTENDANCE' | 'OVERTIME_ORDER' | 'ALL_OVERTIME_ORDER' | 'LEAVE_REQUEST' | 'ALL_ATTENDANCE' | 'APPLICATION_FORM' | 'APPLICATION_FORMS'>('ATTENDANCE');
   const [selectedPrintRecord, setSelectedPrintRecord] = useState<AttendanceRecord | undefined>(undefined);
 
   const fileSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -166,13 +167,13 @@ const App: React.FC = () => {
     if (printTarget === 'ATTENDANCE' || printTarget === 'LEAVE_REQUEST') {
       document.body.classList.add('print-portrait');
       document.body.classList.remove('print-landscape');
-    } else if (printTarget === 'OVERTIME_ORDER') {
+    } else if (printTarget === 'OVERTIME_ORDER' || printTarget === 'ALL_OVERTIME_ORDER') {
       document.body.classList.add('print-landscape');
       document.body.classList.remove('print-portrait');
     }
   }, [printTarget]);
 
-  const handlePrint = (target: 'ATTENDANCE' | 'OVERTIME_ORDER' | 'LEAVE_REQUEST' | 'ALL_ATTENDANCE' | 'APPLICATION_FORM' | 'APPLICATION_FORMS', record?: AttendanceRecord) => {
+  const handlePrint = (target: 'ATTENDANCE' | 'OVERTIME_ORDER' | 'ALL_OVERTIME_ORDER' | 'LEAVE_REQUEST' | 'ALL_ATTENDANCE' | 'APPLICATION_FORM' | 'APPLICATION_FORMS', record?: AttendanceRecord) => {
     setPrintTarget(target);
     if (record) setSelectedPrintRecord(record);
     setTimeout(() => window.print(), 300);
@@ -264,7 +265,10 @@ const App: React.FC = () => {
             出勤簿（全員）
           </button>
           <button onClick={() => handlePrint('OVERTIME_ORDER')} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 shadow-sm">
-            命令簿 印刷
+            命令簿（個人）
+          </button>
+          <button onClick={() => handlePrint('ALL_OVERTIME_ORDER')} className="px-4 py-2 bg-indigo-800 text-white rounded-lg text-xs font-bold hover:bg-indigo-900 shadow-sm">
+            命令簿（全員）
           </button>
           <button onClick={() => handlePrint('APPLICATION_FORMS')} className="px-4 py-2 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 shadow-sm">
             届出 印刷
@@ -292,6 +296,10 @@ const App: React.FC = () => {
 
       {printTarget === 'OVERTIME_ORDER' && (
         <OvertimeOrderPrint records={filteredRecords} user={activeUser!} period={period} dates={dates} />
+      )}
+
+      {printTarget === 'ALL_OVERTIME_ORDER' && (
+        <AllOvertimeOrderPrint users={users} allRecords={allRecords} period={period} dates={dates} />
       )}
 
       {printTarget === 'LEAVE_REQUEST' && (
