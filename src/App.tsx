@@ -163,6 +163,33 @@ const App: React.FC = () => {
   const period = getAttendancePeriod(viewDate);
   const dates = getDatesInRange(period.startDate, period.endDate);
 
+  // 無人PDF書き出しモード（?export=ALL_ATTENDANCE|ALL_OVERTIME_ORDER&asOf=YYYY-MM-DD）
+  // サーバー側の定期実行（api/monthly-report.js）がヘッドレスブラウザでこのURLを開き、PDF化する
+  useEffect(() => {
+    if (!isDataLoaded) return;
+    const params = new URLSearchParams(window.location.search);
+    const exportTarget = params.get('export');
+    if (exportTarget !== 'ALL_ATTENDANCE' && exportTarget !== 'ALL_OVERTIME_ORDER') return;
+
+    const asOf = params.get('asOf');
+    if (asOf) {
+      const d = new Date(asOf);
+      if (!isNaN(d.getTime())) setViewDate(d);
+    }
+    setPrintTarget(exportTarget);
+  }, [isDataLoaded]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const exportTarget = params.get('export');
+    if (!exportTarget || printTarget !== exportTarget) return;
+    // レイアウト確定を待ってから、ヘッドレスブラウザに「準備完了」を通知する
+    const t = setTimeout(() => {
+      document.body.setAttribute('data-export-ready', 'true');
+    }, 300);
+    return () => clearTimeout(t);
+  }, [printTarget, viewDate]);
+
   useEffect(() => {
     if (printTarget === 'ATTENDANCE' || printTarget === 'LEAVE_REQUEST') {
       document.body.classList.add('print-portrait');
