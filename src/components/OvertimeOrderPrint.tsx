@@ -69,7 +69,7 @@ export default function OvertimeOrderPrint({ records, user, period, dates }: Pro
         <div>
           <span style={{ fontWeight: 'bold' }}>{period.year}年　{period.month}月分</span>
           <span style={{ marginLeft: '24px', fontWeight: 'bold' }}>
-            {user.department}　部　　　課　　　係
+            {user.department.replace(/部）$/, '）部')}　ME課
           </span>
         </div>
         <div style={{ fontWeight: 'bold' }}>氏名　{user.name}</div>
