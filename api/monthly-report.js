@@ -61,11 +61,9 @@ export default async function handler(req, res) {
     return;
   }
 
-  const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null;
-  if (!baseUrl) {
-    res.status(500).json({ error: 'VERCEL_URL が取得できません' });
-    return;
-  }
+  // VERCEL_URL はデプロイごとに変わる内部URLで Deployment Protection の対象になるため、
+  // 保護のかからない本番の固定ドメインを使う（APP_BASE_URL で上書き可能）
+  const baseUrl = process.env.APP_BASE_URL || 'https://clinic-attendance-bay.vercel.app';
 
   const asOf = getPreviousPeriodAsOf();
   const periodLabel = getPeriodLabel(asOf);
