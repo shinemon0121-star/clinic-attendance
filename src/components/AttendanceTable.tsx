@@ -28,6 +28,7 @@ const RED_SHIFTS = new Set([
   ShiftType.HALF_PAID_LEAVE,
   ShiftType.SPECIAL_LEAVE,
   ShiftType.ABSENCE,
+  ShiftType.SUMMER_LEAVE,
 ]);
 
 // 出勤扱いの区分

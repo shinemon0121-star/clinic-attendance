@@ -24,6 +24,7 @@ const REQUIRES_APPLICATION = new Set([
   ShiftType.EARLY_LEAVE,
   ShiftType.ABSENCE,
   ShiftType.OTHER,
+  ShiftType.SUMMER_LEAVE,
   // Note: PUBLIC_HOLIDAY is not included - it's a simple rest day marker
 ]);
 
@@ -68,6 +69,8 @@ export default function EditRecordModal({ date, record, onSave, onDelete, onClos
 
 
   const requiresApplication = REQUIRES_APPLICATION.has(shiftType);
+  const isHourlyLeave = shiftType === ShiftType.DAY && hourlyLeaveHours !== null;
+  const needsReason = requiresApplication || isHourlyLeave;
 
   const allowsOvertime = !requiresApplication && (
     shiftType === ShiftType.DAY ||
@@ -77,7 +80,7 @@ export default function EditRecordModal({ date, record, onSave, onDelete, onClos
   );
 
   const handleSave = () => {
-    if (requiresApplication && !applicationReason.trim()) {
+    if (needsReason && !applicationReason.trim()) {
       alert('理由を入力してください');
       return;
     }
@@ -92,7 +95,7 @@ export default function EditRecordModal({ date, record, onSave, onDelete, onClos
       overtimeDescription: allowsOvertime ? overtimeDesc : '',
       isHoliday: isJapaneseHoliday(date),
       hourlyLeaveHours: shiftType === ShiftType.DAY ? hourlyLeaveHours : null,
-      ...(requiresApplication && {
+      ...(needsReason && {
         applicationReason,
         applicationStartDate,
         applicationEndDate,
@@ -237,9 +240,21 @@ export default function EditRecordModal({ date, record, onSave, onDelete, onClos
                 ))}
               </div>
               {hourlyLeaveHours !== null && (
-                <p className="text-[10px] text-slate-400 mt-1.5">
-                  {hourlyLeaveHours}時間有休（{hourlyLeaveHours}有）として、有給残高から{(hourlyLeaveHours / 8).toFixed(3).replace(/\.?0+$/, '')}日分が差し引かれます（年間上限あり）。1日1回のみ取得可能です。
-                </p>
+                <>
+                  <p className="text-[10px] text-slate-400 mt-1.5 mb-2">
+                    {hourlyLeaveHours}時間有休（{hourlyLeaveHours}有）として、有給残高から{(hourlyLeaveHours / 8).toFixed(3).replace(/\.?0+$/, '')}日分が差し引かれます（年間上限あり）。1日1回のみ取得可能です。
+                  </p>
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 block mb-1.5">理由 <span className="text-red-600">*</span></label>
+                    <textarea
+                      value={applicationReason}
+                      onChange={e => setApplicationReason(e.target.value)}
+                      rows={2}
+                      placeholder="申請理由を記入してください（届出印刷に使用されます）"
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 resize-none"
+                    />
+                  </div>
+                </>
               )}
             </div>
           )}
@@ -353,7 +368,7 @@ export default function EditRecordModal({ date, record, onSave, onDelete, onClos
           >
             申請保存
           </button>
-          {requiresApplication && applicationReason.trim() && onPrintApplicationForm && (
+          {needsReason && applicationReason.trim() && onPrintApplicationForm && (
             <button
               onClick={() => {
                 const finalOvertimeEnd = overtimeEnd || (() => {
@@ -372,6 +387,7 @@ export default function EditRecordModal({ date, record, onSave, onDelete, onClos
                   overtimeEnd: finalOvertimeEnd || null,
                   overtimeDescription: overtimeDesc,
                   isHoliday: isJapaneseHoliday(date),
+                  hourlyLeaveHours: shiftType === ShiftType.DAY ? hourlyLeaveHours : null,
                   applicationReason,
                   applicationStartDate,
                   applicationEndDate,

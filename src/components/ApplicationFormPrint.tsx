@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { AttendanceRecord, ShiftType, User } from '../types';
-import { formatDateLocal, getWeekdayLabel, parseAndFormatDate } from '../utils/dateUtils';
+import { AttendanceRecord, PaidLeaveGrant, ShiftType, User } from '../types';
+import { formatDateLocal, getWeekdayLabel, parseAndFormatDate, calculatePaidLeaveBalance } from '../utils/dateUtils';
 import { generateSealImageCached } from '../utils/sealGenerator';
 
 interface Props {
   record: AttendanceRecord;
   user: User;
+  allRecords: AttendanceRecord[];
+  paidLeaveGrants: PaidLeaveGrant[];
   issuedAt?: Date;
 }
 
@@ -29,21 +31,12 @@ function parseDate(dateStr: string): { reiwa: number; month: number; day: number
   };
 }
 
-// 午前/午後 と 時・分 に分割
-function splitAmPmTime(timeStr: string | undefined): { ampm: string; h: number | null; min: number | null } {
-  if (!timeStr) return { ampm: '', h: null, min: null };
-  if (timeStr === '午前' || timeStr === '午後') return { ampm: timeStr, h: null, min: null };
-  // HH:MM の場合
-  const m = timeStr.match(/^(\d{1,2}):(\d{1,2})$/);
-  if (m) {
-    const h = parseInt(m[1], 10);
-    const min = parseInt(m[2], 10);
-    // 12時間制に変換
-    const ampm = h < 12 ? '午前' : '午後';
-    const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-    return { ampm, h: h12, min };
-  }
-  return { ampm: '', h: null, min: null };
+// "17:00" → {h: 17, m: 0}
+function splitTime24(timeStr: string | undefined): { h: number | null; m: number | null } {
+  if (!timeStr) return { h: null, m: null };
+  const match = timeStr.match(/^(\d{1,2}):(\d{1,2})$/);
+  if (!match) return { h: null, m: null };
+  return { h: parseInt(match[1], 10), m: parseInt(match[2], 10) };
 }
 
 // 時間数を計算（HH:MM形式）
@@ -63,30 +56,7 @@ function calcDurationHours(startTime: string | undefined, endTime: string | unde
   return Math.round(diff / 60 * 10) / 10; // 小数第一位まで
 }
 
-// 休暇の種類コード
-const KIND_MAP: Record<string, ShiftType> = {
-  'イ': ShiftType.PAID_LEAVE,
-  'ロ': ShiftType.ILLNESS,
-  'ハ': ShiftType.SPECIAL_LEAVE,
-  'ニ': ShiftType.ABSENCE,
-  'ホ': ShiftType.LATE,
-  'ヘ': ShiftType.EARLY_LEAVE,
-  'ト': ShiftType.SUBSTITUTE_LEAVE,
-  'チ': ShiftType.OTHER,
-};
-
-const KIND_LABELS: { code: string; label: string }[] = [
-  { code: 'イ', label: '有　休' },
-  { code: 'ロ', label: '病　気' },
-  { code: 'ハ', label: '特　別' },
-  { code: 'ニ', label: '欠　勤' },
-  { code: 'ホ', label: '遅　刻' },
-  { code: 'ヘ', label: '早　退' },
-  { code: 'ト', label: '代　休' },
-  { code: 'チ', label: 'その他' },
-];
-
-export default function ApplicationFormPrint({ record, user, issuedAt }: Props) {
+export default function ApplicationFormPrint({ record, user, allRecords, paidLeaveGrants, issuedAt }: Props) {
   const [sealImage, setSealImage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -114,18 +84,40 @@ export default function ApplicationFormPrint({ record, user, issuedAt }: Props) 
     return Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
   })();
 
-  const startTime = splitAmPmTime(record.applicationStartTime);
-  const endTime = splitAmPmTime(record.applicationEndTime);
-  const durationHours = durationType === '時間' ? calcDurationHours(record.applicationStartTime, record.applicationEndTime) : 0;
+  const isHourlyLeave = !!record.hourlyLeaveHours;
+  const showTimeBlock = isHourlyLeave || durationType === '時間';
+  const startTime24 = splitTime24(record.applicationStartTime);
+  const endTime24 = splitTime24(record.applicationEndTime);
+  const durationHours = isHourlyLeave
+    ? record.hourlyLeaveHours!
+    : durationType === '時間'
+    ? calcDurationHours(record.applicationStartTime, record.applicationEndTime)
+    : 0;
 
-  // 半休の場合は有休にチェック + その他欄に「半日」
-  const checkedCode: string | null = (() => {
-    if (record.shiftType === ShiftType.HALF_PAID_LEAVE) return 'イ';
-    const entry = Object.entries(KIND_MAP).find(([, v]) => v === record.shiftType);
-    return entry?.[0] ?? null;
-  })();
+  // 休暇の種類チェック
+  const isPaidLeave = record.shiftType === ShiftType.PAID_LEAVE;
+  const isHalfPaidLeave = record.shiftType === ShiftType.HALF_PAID_LEAVE;
+  const isSpecialLeave = record.shiftType === ShiftType.SPECIAL_LEAVE;
+  const isSummerLeave = record.shiftType === ShiftType.SUMMER_LEAVE;
+  const isLate = record.shiftType === ShiftType.LATE;
+  const isEarlyLeave = record.shiftType === ShiftType.EARLY_LEAVE;
+  const isAbsenceGroup = record.shiftType === ShiftType.ABSENCE || isLate || isEarlyLeave;
 
-  const isChecked = (code: string) => checkedCode === code;
+  // 有休残日数・時間数（この申請を使用した後の残高）
+  const refDate = new Date(record.date);
+  const alreadySaved = allRecords.some(r => r.id === record.id);
+  const recordsForCalc = alreadySaved ? allRecords : [...allRecords, record];
+  const paidLeave = calculatePaidLeaveBalance(paidLeaveGrants, recordsForCalc, user.id, refDate);
+  let balanceDays = Math.floor(paidLeave.balance);
+  let balanceHours = Math.round((paidLeave.balance - balanceDays) * 8);
+  if (balanceHours >= 8) {
+    balanceDays += 1;
+    balanceHours -= 8;
+  }
+
+  const Mark = ({ checked }: { checked: boolean }) => (
+    <span style={{ display: 'inline-block', width: '1.2em' }}>{checked ? '●' : '○'}</span>
+  );
 
   return (
     <div className="hidden print:block font-['Noto_Sans_JP'] text-black">
@@ -143,7 +135,7 @@ export default function ApplicationFormPrint({ record, user, issuedAt }: Props) 
         {/* タイトル */}
         <div style={{ textAlign: 'center', marginBottom: '8mm' }}>
           <h1 style={{ fontSize: '26pt', fontWeight: 'bold', letterSpacing: '0.4em', margin: 0 }}>
-            休暇・欠勤（遅刻.早退）届
+            休暇・欠勤届
           </h1>
         </div>
 
@@ -193,11 +185,6 @@ export default function ApplicationFormPrint({ record, user, issuedAt }: Props) 
           </table>
         </div>
 
-        {/* 申請文 */}
-        <div style={{ fontSize: '12pt', marginBottom: '5mm' }}>
-          私は下記の通り休暇を受けたいのでご承認方お願い致します。
-        </div>
-
         {/* メインテーブル */}
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11pt', border: '1.5px solid #000' }}>
           <tbody>
@@ -210,33 +197,41 @@ export default function ApplicationFormPrint({ record, user, issuedAt }: Props) 
                   textAlign: 'center',
                   padding: '3mm',
                   verticalAlign: 'middle',
-                  fontWeight: 'normal',
                 }}
               >
-                休暇の種類
+                休暇の種類<br />
+                <span style={{ fontSize: '8pt', color: '#555' }}>（いずれかに○）</span>
               </td>
               <td style={{ border: '1px solid #000', padding: '4mm' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <tbody>
                     <tr>
-                      {KIND_LABELS.slice(0, 4).map(k => (
-                        <td key={k.code} style={{ padding: '1mm 3mm', whiteSpace: 'nowrap' }}>
-                          <span style={{ display: 'inline-block', width: '1.2em' }}>
-                            {isChecked(k.code) ? '●' : '○'}
-                          </span>
-                          （{k.code}）{k.label}
-                        </td>
-                      ))}
+                      <td style={{ padding: '1.5mm 3mm', whiteSpace: 'nowrap' }}>
+                        <Mark checked={isPaidLeave} />全日有休
+                      </td>
+                      <td style={{ padding: '1.5mm 3mm', whiteSpace: 'nowrap' }}>
+                        <Mark checked={isHalfPaidLeave} />半日有休（午前／午後）
+                      </td>
                     </tr>
                     <tr>
-                      {KIND_LABELS.slice(4, 8).map(k => (
-                        <td key={k.code} style={{ padding: '1mm 3mm', whiteSpace: 'nowrap' }}>
-                          <span style={{ display: 'inline-block', width: '1.2em' }}>
-                            {isChecked(k.code) ? '●' : '○'}
-                          </span>
-                          （{k.code}）{k.label}
-                        </td>
-                      ))}
+                      <td style={{ padding: '1.5mm 3mm', whiteSpace: 'nowrap' }}>
+                        <Mark checked={isHourlyLeave} />時間有休
+                      </td>
+                      <td style={{ padding: '1.5mm 3mm', whiteSpace: 'nowrap' }}>
+                        <Mark checked={isSpecialLeave} />特　　別
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: '1.5mm 3mm', whiteSpace: 'nowrap' }}>
+                        <Mark checked={isSummerLeave} />夏　期
+                      </td>
+                      <td style={{ padding: '1.5mm 3mm', whiteSpace: 'nowrap' }}>
+                        <Mark checked={isAbsenceGroup} />欠　勤（
+                        <span style={{ textDecoration: isLate ? 'underline' : 'none', fontWeight: isLate ? 'bold' : 'normal' }}>遅刻</span>
+                        ／
+                        <span style={{ textDecoration: isEarlyLeave ? 'underline' : 'none', fontWeight: isEarlyLeave ? 'bold' : 'normal' }}>早退</span>
+                        ）
+                      </td>
                     </tr>
                   </tbody>
                 </table>
@@ -261,7 +256,7 @@ export default function ApplicationFormPrint({ record, user, issuedAt }: Props) 
                 style={{
                   border: '1px solid #000',
                   padding: '4mm',
-                  height: '30mm',
+                  height: '26mm',
                   verticalAlign: 'top',
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-word',
@@ -271,7 +266,7 @@ export default function ApplicationFormPrint({ record, user, issuedAt }: Props) 
               </td>
             </tr>
 
-            {/* 期日 */}
+            {/* 取得日時 */}
             <tr>
               <td
                 style={{
@@ -279,79 +274,65 @@ export default function ApplicationFormPrint({ record, user, issuedAt }: Props) 
                   textAlign: 'center',
                   padding: '3mm',
                   verticalAlign: 'middle',
-                  letterSpacing: '1em',
+                  letterSpacing: '0.5em',
                   paddingRight: 0,
                 }}
               >
-                期日
+                取得日時
               </td>
               <td style={{ border: '1px solid #000', padding: '4mm', verticalAlign: 'middle' }}>
                 {/* 日付ブロック */}
-                <div style={{ marginBottom: '3mm' }}>
-                  <div style={{ marginBottom: '2mm' }}>
-                    令和 <u>&nbsp;{start?.reiwa ?? ''}&nbsp;</u> 年
-                    <u>&nbsp;{start?.month ?? ''}&nbsp;</u> 月
-                    <u>&nbsp;{start?.day ?? ''}&nbsp;</u> 日（<u>&nbsp;{start?.dow ?? ''}&nbsp;</u>曜）から
-                  </div>
-                  <div>
-                    令和 <u>&nbsp;{end?.reiwa ?? ''}&nbsp;</u> 年
-                    <u>&nbsp;{end?.month ?? ''}&nbsp;</u> 月
-                    <u>&nbsp;{end?.day ?? ''}&nbsp;</u> 日（<u>&nbsp;{end?.dow ?? ''}&nbsp;</u>曜）まで
-                  </div>
+                <div style={{ marginBottom: '2mm' }}>
+                  令和 <u>&nbsp;{start?.reiwa ?? ''}&nbsp;</u> 年
+                  <u>&nbsp;{start?.month ?? ''}&nbsp;</u> 月
+                  <u>&nbsp;{start?.day ?? ''}&nbsp;</u> 日（<u>&nbsp;{start?.dow ?? ''}&nbsp;</u>曜）から
+                </div>
+                <div>
+                  令和 <u>&nbsp;{end?.reiwa ?? ''}&nbsp;</u> 年
+                  <u>&nbsp;{end?.month ?? ''}&nbsp;</u> 月
+                  <u>&nbsp;{end?.day ?? ''}&nbsp;</u> 日（<u>&nbsp;{end?.dow ?? ''}&nbsp;</u>曜）まで
+                </div>
+                <div style={{ textAlign: 'right', marginTop: '2mm', marginBottom: showTimeBlock ? '3mm' : 0 }}>
+                  <u>&nbsp;{durationDays}&nbsp;</u> 日間
                 </div>
 
-                {/* 時間ブロック */}
-                {durationType === '時間' && (
-                  <div style={{ marginBottom: '3mm' }}>
-                    <div style={{ marginBottom: '2mm', display: 'flex', gap: '20mm' }}>
-                      <div style={{ flex: 1 }}>
-                        <span style={{ textDecoration: startTime.ampm === '午前' ? 'underline' : 'none', fontWeight: startTime.ampm === '午前' ? 'bold' : 'normal' }}>
-                          午前
-                        </span>
-                        <u>&nbsp;{startTime.ampm === '午前' && startTime.h ? startTime.h : ''}&nbsp;</u> 時
-                        <u>&nbsp;{startTime.ampm === '午前' && startTime.min !== null ? String(startTime.min).padStart(1, '0') : ''}&nbsp;</u> 分
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <span style={{ textDecoration: startTime.ampm === '午後' ? 'underline' : 'none', fontWeight: startTime.ampm === '午後' ? 'bold' : 'normal' }}>
-                          午後
-                        </span>
-                        <u>&nbsp;{startTime.ampm === '午後' && startTime.h ? startTime.h : ''}&nbsp;</u> 時
-                        <u>&nbsp;{startTime.ampm === '午後' && startTime.min !== null ? String(startTime.min).padStart(1, '0') : ''}&nbsp;</u> 分
-                      </div>
+                {showTimeBlock && (
+                  <div style={{ borderTop: '1px dashed #999', paddingTop: '2.5mm' }}>
+                    <div style={{ fontSize: '9pt', color: '#555', marginBottom: '2mm' }}>
+                      時間有休、欠勤を申請する場合のみ記入
                     </div>
-                    <div style={{ marginBottom: '2mm' }}>から</div>
-                    <div style={{ marginBottom: '2mm', display: 'flex', gap: '20mm' }}>
-                      <div style={{ flex: 1 }}>
-                        <span style={{ textDecoration: endTime.ampm === '午前' ? 'underline' : 'none', fontWeight: endTime.ampm === '午前' ? 'bold' : 'normal' }}>
-                          午前
-                        </span>
-                        <u>&nbsp;{endTime.ampm === '午前' && endTime.h ? endTime.h : ''}&nbsp;</u> 時
-                        <u>&nbsp;{endTime.ampm === '午前' && endTime.min !== null ? String(endTime.min).padStart(1, '0') : ''}&nbsp;</u> 分
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <span style={{ textDecoration: endTime.ampm === '午後' ? 'underline' : 'none', fontWeight: endTime.ampm === '午後' ? 'bold' : 'normal' }}>
-                          午後
-                        </span>
-                        <u>&nbsp;{endTime.ampm === '午後' && endTime.h ? endTime.h : ''}&nbsp;</u> 時
-                        <u>&nbsp;{endTime.ampm === '午後' && endTime.min !== null ? String(endTime.min).padStart(1, '0') : ''}&nbsp;</u> 分
-                      </div>
+                    <div style={{ marginBottom: '2mm' }}>
+                      <u>&nbsp;{startTime24.h ?? ''}&nbsp;</u> 時
+                      <u>&nbsp;{startTime24.m ?? ''}&nbsp;</u> 分から
+                      <span style={{ marginLeft: '6mm' }}>
+                        <u>&nbsp;{endTime24.h ?? ''}&nbsp;</u> 時
+                        <u>&nbsp;{endTime24.m ?? ''}&nbsp;</u> 分まで
+                      </span>
                     </div>
-                    <div>まで</div>
+                    <div style={{ textAlign: 'right' }}>
+                      <u>&nbsp;{durationHours}&nbsp;</u> 時間
+                    </div>
                   </div>
                 )}
+              </td>
+            </tr>
 
-                {/* 合計 */}
-                <div style={{ textAlign: 'right' }}>
-                  {durationType === '日数' ? (
-                    <span>
-                      <u>&nbsp;{durationDays}&nbsp;</u> 日間
-                    </span>
-                  ) : (
-                    <span>
-                      <u>&nbsp;{durationHours}&nbsp;</u> 時間
-                    </span>
-                  )}
-                </div>
+            {/* 有休残日数・時間数 */}
+            <tr>
+              <td
+                style={{
+                  border: '1px solid #000',
+                  textAlign: 'center',
+                  padding: '3mm',
+                  verticalAlign: 'middle',
+                  fontSize: '9pt',
+                }}
+              >
+                有休残日数<br />・時間数
+              </td>
+              <td style={{ border: '1px solid #000', padding: '4mm' }}>
+                <u>&nbsp;{balanceDays}&nbsp;</u> 日　<u>&nbsp;{balanceHours}&nbsp;</u> 時間
+                <span style={{ marginLeft: '6mm', fontSize: '9pt', color: '#555' }}>（使用後の残日数・時間数）</span>
               </td>
             </tr>
 
@@ -373,14 +354,13 @@ export default function ApplicationFormPrint({ record, user, issuedAt }: Props) 
                 style={{
                   border: '1px solid #000',
                   padding: '4mm',
-                  height: '18mm',
+                  height: '16mm',
                   verticalAlign: 'top',
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-word',
                 }}
               >
-                {record.shiftType === ShiftType.HALF_PAID_LEAVE ? '半日' : ''}
-                {record.applicationOtherRemarks ? (record.shiftType === ShiftType.HALF_PAID_LEAVE ? '　' : '') + record.applicationOtherRemarks : ''}
+                {record.applicationOtherRemarks}
               </td>
             </tr>
           </tbody>
@@ -392,45 +372,24 @@ export default function ApplicationFormPrint({ record, user, issuedAt }: Props) 
             <tbody>
               <tr>
                 <td
-                  rowSpan={2}
                   style={{
                     border: '1px solid #000',
-                    width: '12mm',
+                    width: '20mm',
                     textAlign: 'center',
                     verticalAlign: 'middle',
                     padding: '2mm',
-                    letterSpacing: '0.5em',
+                    lineHeight: 1.6,
                   }}
                 >
-                  決裁
+                  所属長<br />決裁
                 </td>
-                {['理事長', '院　長', '事務局長', '事務長', '所属長'].map((t) => (
-                  <td
-                    key={t}
-                    style={{
-                      border: '1px solid #000',
-                      width: '18mm',
-                      height: '8mm',
-                      textAlign: 'center',
-                      padding: '1mm',
-                      fontSize: '9pt',
-                    }}
-                  >
-                    {t}
-                  </td>
-                ))}
-              </tr>
-              <tr>
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <td
-                    key={i}
-                    style={{
-                      border: '1px solid #000',
-                      width: '18mm',
-                      height: '18mm',
-                    }}
-                  ></td>
-                ))}
+                <td
+                  style={{
+                    border: '1px solid #000',
+                    width: '22mm',
+                    height: '22mm',
+                  }}
+                ></td>
               </tr>
             </tbody>
           </table>

@@ -16,6 +16,7 @@ export enum ShiftType {
   LATE = 'LATE',
   EARLY_LEAVE = 'EARLY_LEAVE',
   OTHER = 'OTHER',
+  SUMMER_LEAVE = 'SUMMER_LEAVE',
 }
 
 export const SHIFT_LABELS: Record<ShiftType, string> = {
@@ -36,6 +37,7 @@ export const SHIFT_LABELS: Record<ShiftType, string> = {
   [ShiftType.LATE]: '遅刻',
   [ShiftType.EARLY_LEAVE]: '早退',
   [ShiftType.OTHER]: 'その他',
+  [ShiftType.SUMMER_LEAVE]: '夏期休暇',
 };
 
 export const SHIFT_COLORS: Record<ShiftType, string> = {
@@ -56,6 +58,7 @@ export const SHIFT_COLORS: Record<ShiftType, string> = {
   [ShiftType.LATE]: 'bg-orange-100 text-orange-800',
   [ShiftType.EARLY_LEAVE]: 'bg-orange-100 text-orange-800',
   [ShiftType.OTHER]: 'bg-slate-100 text-slate-800',
+  [ShiftType.SUMMER_LEAVE]: 'bg-amber-100 text-amber-800',
 };
 
 export interface AttendanceRecord {

@@ -330,17 +330,23 @@ const App: React.FC = () => {
       )}
 
       {printTarget === 'LEAVE_REQUEST' && (
-        <LeaveRequestPrint user={activeUser!} record={selectedPrintRecord} />
+        <LeaveRequestPrint user={activeUser!} record={selectedPrintRecord} allRecords={allRecords} paidLeaveGrants={paidLeaveGrants} />
       )}
 
       {printTarget === 'APPLICATION_FORM' && selectedPrintRecord && (
-        <ApplicationFormPrint user={activeUser!} record={selectedPrintRecord} />
+        <ApplicationFormPrint
+          user={activeUser!}
+          record={selectedPrintRecord}
+          allRecords={allRecords}
+          paidLeaveGrants={paidLeaveGrants}
+        />
       )}
 
       {printTarget === 'APPLICATION_FORMS' && (
         <ApplicationFormsPrint
           users={users}
           allRecords={allRecords}
+          paidLeaveGrants={paidLeaveGrants}
           periodStartDate={period.startDate}
           periodEndDate={period.endDate}
         />
