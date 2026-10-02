@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { AttendanceRecord, PaidLeaveGrant, ShiftType, User } from '../types';
 import { formatDateLocal, getWeekdayLabel, parseAndFormatDate, calculatePaidLeaveBalance } from '../utils/dateUtils';
-import { generateSealImageCached } from '../utils/sealGenerator';
 
 interface Props {
   record: AttendanceRecord;
@@ -57,17 +56,6 @@ function calcDurationHours(startTime: string | undefined, endTime: string | unde
 }
 
 export default function ApplicationFormPrint({ record, user, allRecords, paidLeaveGrants, issuedAt }: Props) {
-  const [sealImage, setSealImage] = useState<string | null>(null);
-
-  useEffect(() => {
-    try {
-      const seal = generateSealImageCached(user.name);
-      setSealImage(seal);
-    } catch (error) {
-      console.error('Failed to generate seal:', error);
-    }
-  }, [user.name]);
-
   const issuedDate = issuedAt ?? new Date();
   const todayReiwa = toReiwa(issuedDate.getFullYear());
   const todayMonth = issuedDate.getMonth() + 1;
@@ -161,24 +149,8 @@ export default function ApplicationFormPrint({ record, user, allRecords, paidLea
               </tr>
               <tr>
                 <td style={{ padding: '2mm 4mm', whiteSpace: 'nowrap' }}>氏名</td>
-                <td style={{ padding: '2mm 4mm', borderBottom: '1px solid #000', minWidth: '50mm', position: 'relative' }}>
+                <td style={{ padding: '2mm 4mm', borderBottom: '1px solid #000', minWidth: '50mm' }}>
                   {user.name}
-                  {sealImage ? (
-                    <img
-                      src={sealImage}
-                      alt="seal"
-                      style={{
-                        position: 'absolute',
-                        right: '1mm',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        width: '15mm',
-                        height: '15mm',
-                      }}
-                    />
-                  ) : (
-                    <span style={{ position: 'absolute', right: '2mm', top: '50%', transform: 'translateY(-50%)', fontSize: '13pt' }}>㊞</span>
-                  )}
                 </td>
               </tr>
             </tbody>
@@ -192,14 +164,14 @@ export default function ApplicationFormPrint({ record, user, allRecords, paidLea
             <tr>
               <td
                 style={{
-                  width: '25mm',
+                  width: '32mm',
                   border: '1px solid #000',
                   textAlign: 'center',
                   padding: '3mm',
                   verticalAlign: 'middle',
                 }}
               >
-                休暇の種類<br />
+                <div style={{ whiteSpace: 'nowrap' }}>休暇の種類</div>
                 <span style={{ fontSize: '8pt', color: '#555' }}>（いずれかに○）</span>
               </td>
               <td style={{ border: '1px solid #000', padding: '4mm' }}>
@@ -274,8 +246,7 @@ export default function ApplicationFormPrint({ record, user, allRecords, paidLea
                   textAlign: 'center',
                   padding: '3mm',
                   verticalAlign: 'middle',
-                  letterSpacing: '0.5em',
-                  paddingRight: 0,
+                  whiteSpace: 'nowrap',
                 }}
               >
                 取得日時
@@ -292,28 +263,26 @@ export default function ApplicationFormPrint({ record, user, allRecords, paidLea
                   <u>&nbsp;{end?.month ?? ''}&nbsp;</u> 月
                   <u>&nbsp;{end?.day ?? ''}&nbsp;</u> 日（<u>&nbsp;{end?.dow ?? ''}&nbsp;</u>曜）まで
                 </div>
-                <div style={{ textAlign: 'right', marginTop: '2mm', marginBottom: showTimeBlock ? '3mm' : 0 }}>
+                <div style={{ textAlign: 'right', marginTop: '2mm', marginBottom: '3mm' }}>
                   <u>&nbsp;{durationDays}&nbsp;</u> 日間
                 </div>
 
-                {showTimeBlock && (
-                  <div style={{ borderTop: '1px dashed #999', paddingTop: '2.5mm' }}>
-                    <div style={{ fontSize: '9pt', color: '#555', marginBottom: '2mm' }}>
-                      時間有休、欠勤を申請する場合のみ記入
-                    </div>
-                    <div style={{ marginBottom: '2mm' }}>
-                      <u>&nbsp;{startTime24.h ?? ''}&nbsp;</u> 時
-                      <u>&nbsp;{startTime24.m ?? ''}&nbsp;</u> 分から
-                      <span style={{ marginLeft: '6mm' }}>
-                        <u>&nbsp;{endTime24.h ?? ''}&nbsp;</u> 時
-                        <u>&nbsp;{endTime24.m ?? ''}&nbsp;</u> 分まで
-                      </span>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <u>&nbsp;{durationHours}&nbsp;</u> 時間
-                    </div>
+                <div style={{ borderTop: '1px dashed #999', paddingTop: '2.5mm' }}>
+                  <div style={{ fontSize: '9pt', color: '#555', marginBottom: '2mm' }}>
+                    時間有休、欠勤を申請する場合のみ記入
                   </div>
-                )}
+                  <div style={{ marginBottom: '2mm' }}>
+                    <u>&nbsp;{showTimeBlock ? (startTime24.h ?? '') : ''}&nbsp;</u> 時
+                    <u>&nbsp;{showTimeBlock ? (startTime24.m ?? '') : ''}&nbsp;</u> 分から
+                    <span style={{ marginLeft: '6mm' }}>
+                      <u>&nbsp;{showTimeBlock ? (endTime24.h ?? '') : ''}&nbsp;</u> 時
+                      <u>&nbsp;{showTimeBlock ? (endTime24.m ?? '') : ''}&nbsp;</u> 分まで
+                    </span>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <u>&nbsp;{showTimeBlock ? durationHours : ''}&nbsp;</u> 時間
+                  </div>
+                </div>
               </td>
             </tr>
 
@@ -336,33 +305,6 @@ export default function ApplicationFormPrint({ record, user, allRecords, paidLea
               </td>
             </tr>
 
-            {/* その他 */}
-            <tr>
-              <td
-                style={{
-                  border: '1px solid #000',
-                  textAlign: 'center',
-                  padding: '3mm',
-                  verticalAlign: 'middle',
-                  letterSpacing: '0.5em',
-                  paddingRight: 0,
-                }}
-              >
-                その他
-              </td>
-              <td
-                style={{
-                  border: '1px solid #000',
-                  padding: '4mm',
-                  height: '16mm',
-                  verticalAlign: 'top',
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                }}
-              >
-                {record.applicationOtherRemarks}
-              </td>
-            </tr>
           </tbody>
         </table>
 
