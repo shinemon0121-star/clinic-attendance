@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { AttendanceRecord, User, AppSettings, PaidLeaveGrant, HourlyLeaveGrant } from './types';
+import { AttendanceRecord, User, AppSettings, PaidLeaveGrant, HourlyLeaveGrant, IcCardUser } from './types';
 import {
   getAttendancePeriod,
   getDatesInRange,
@@ -8,6 +8,8 @@ import {
 import {
   loadUsersFromDB, loadRecordsFromDB, loadGrantsFromDB, loadHourlyLeaveGrantsFromDB,
   saveUsersToDB, saveRecordsToDB, saveGrantsToDB, saveHourlyLeaveGrantsToDB, deleteRecord,
+  loadIcCardUsersFromDB, fetchLatestUnconsumedTap, markTapConsumed,
+  registerIcCardToDB, deleteIcCardFromDB,
 } from './utils/supabaseClient';
 import AttendanceTable from './components/AttendanceTable';
 import ClockPanel from './components/ClockPanel';
@@ -33,6 +35,8 @@ const App: React.FC = () => {
   const [allRecords, setAllRecords] = useState<AttendanceRecord[]>([]);
   const [paidLeaveGrants, setPaidLeaveGrants] = useState<PaidLeaveGrant[]>([]);
   const [hourlyLeaveGrants, setHourlyLeaveGrants] = useState<HourlyLeaveGrant[]>([]);
+  const [icCardUsers, setIcCardUsers] = useState<IcCardUser[]>([]);
+  const [prefillOvertimeEnd, setPrefillOvertimeEnd] = useState<string | undefined>(undefined);
 
   const [settings, setSettings] = useState<AppSettings>({ spreadsheetUrl: '', displaySpreadsheetUrl: '' });
 
@@ -75,11 +79,12 @@ const App: React.FC = () => {
     const loadData = async () => {
       try {
         console.log('🔄 Supabase からのロード開始...');
-        let [usersData, recordsData, grantsData, hourlyGrantsData] = await Promise.all([
+        let [usersData, recordsData, grantsData, hourlyGrantsData, icCardUsersData] = await Promise.all([
           loadUsersFromDB(),
           loadRecordsFromDB(),
           loadGrantsFromDB(),
           loadHourlyLeaveGrantsFromDB(),
+          loadIcCardUsersFromDB(),
         ]);
 
         // users が空の場合、初期ユーザーを投入
@@ -101,6 +106,7 @@ const App: React.FC = () => {
         if (hourlyGrantsData.length > 0) {
           setHourlyLeaveGrants(hourlyGrantsData);
         }
+        setIcCardUsers(icCardUsersData);
         setFileStatus('saved');
       } catch (e: any) {
         console.error('❌ Supabase からのロード失敗:', {
@@ -118,20 +124,59 @@ const App: React.FC = () => {
     loadData();
   }, []);
 
+  // ICカードタップの監視（最新のステートを参照するため ref 経由で読む）
+  const allRecordsRef = useRef(allRecords);
+  useEffect(() => { allRecordsRef.current = allRecords; }, [allRecords]);
+  const icCardUsersRef = useRef(icCardUsers);
+  useEffect(() => { icCardUsersRef.current = icCardUsers; }, [icCardUsers]);
+
+  useEffect(() => {
+    if (!isDataLoaded) return;
+    const checkTap = async () => {
+      try {
+        const tap = await fetchLatestUnconsumedTap();
+        if (!tap) return;
+        const match = icCardUsersRef.current.find(c => c.idm === tap.idm);
+        if (!match) return; // 未登録カード：管理画面の登録フローで処理する
+
+        await markTapConsumed(tap.id);
+
+        const tapDate = new Date(tap.tappedAt);
+        const hh = String(tapDate.getHours()).padStart(2, '0');
+        const mm = String(tapDate.getMinutes()).padStart(2, '0');
+        const todayStr = formatDateLocal(new Date());
+        const uid = match.userId.trim().toLowerCase();
+        const existing = allRecordsRef.current.find(
+          r => r.userId?.trim().toLowerCase() === uid && r.date === todayStr
+        );
+
+        setActiveUserId(match.userId);
+        setPrefillOvertimeEnd(`${hh}:${mm}`);
+        setEditingData({ date: new Date(), record: existing });
+      } catch (e) {
+        console.error('❌ ICカードタップ確認エラー:', e);
+      }
+    };
+    checkTap();
+    const interval = setInterval(checkTap, 4000);
+    return () => clearInterval(interval);
+  }, [isDataLoaded]);
 
   const refreshData = useCallback(async () => {
     setIsSyncing(true);
     try {
-      const [usersData, recordsData, grantsData, hourlyGrantsData] = await Promise.all([
+      const [usersData, recordsData, grantsData, hourlyGrantsData, icCardUsersData] = await Promise.all([
         loadUsersFromDB(),
         loadRecordsFromDB(),
         loadGrantsFromDB(),
         loadHourlyLeaveGrantsFromDB(),
+        loadIcCardUsersFromDB(),
       ]);
       setUsers(usersData);
       setAllRecords(recordsData);
       setPaidLeaveGrants(grantsData);
       setHourlyLeaveGrants(hourlyGrantsData);
+      setIcCardUsers(icCardUsersData);
       setLastSyncTime(new Date().toLocaleTimeString('ja-JP'));
       alert('✅ Supabase から最新データを取得しました。');
     } catch (e: any) {
@@ -151,6 +196,16 @@ const App: React.FC = () => {
       console.error('ユーザー初期化エラー:', e);
       alert(`❌ 初期化失敗: ${e.message}`);
     }
+  }, []);
+
+  const handleRegisterIcCard = useCallback(async (idm: string, userId: string, label: string) => {
+    await registerIcCardToDB(idm, userId, label);
+    setIcCardUsers(prev => [...prev.filter(c => c.idm !== idm), { idm, userId, label, createdAt: new Date().toISOString() }]);
+  }, []);
+
+  const handleDeleteIcCard = useCallback(async (idm: string) => {
+    await deleteIcCardFromDB(idm);
+    setIcCardUsers(prev => prev.filter(c => c.idm !== idm));
   }, []);
 
   const activeUser = users.find(u => u.id === activeUserId) || users[0];
@@ -248,6 +303,7 @@ const App: React.FC = () => {
       updatedRec,
     ]);
     setEditingData(null);
+    setPrefillOvertimeEnd(undefined);
   };
 
   // 申請の取消（記録を削除して自動入力に戻す）
@@ -265,6 +321,7 @@ const App: React.FC = () => {
 
       setAllRecords(prev => prev.filter(r => !(r.date === dateStr && r.userId === uId)));
       setEditingData(null);
+      setPrefillOvertimeEnd(undefined);
     } catch (e: any) {
       console.error('❌ レコード削除エラー:', e);
       alert(`❌ 削除失敗: ${e.message}`);
@@ -374,7 +431,7 @@ const App: React.FC = () => {
               paidLeaveGrants={paidLeaveGrants}
               hourlyLeaveGrants={hourlyLeaveGrants}
               allRecords={allRecords}
-              onOpenToday={() => setEditingData({ date: new Date(), record: todayRecord })}
+              onOpenToday={() => { setPrefillOvertimeEnd(undefined); setEditingData({ date: new Date(), record: todayRecord }); }}
             />
           </div>
           <div className="lg:col-span-2">
@@ -420,6 +477,9 @@ const App: React.FC = () => {
               onUpdateSettings={setSettings}
               onBulkSync={() => alert('✅ 自動保存機能が有効です。変更は自動的に Supabase に同期されます。')}
               onFetchFromSheet={refreshData}
+              icCardUsers={icCardUsers}
+              onRegisterIcCard={handleRegisterIcCard}
+              onDeleteIcCard={handleDeleteIcCard}
             />
           </div>
         </div>
@@ -463,7 +523,7 @@ const App: React.FC = () => {
             paidLeaveGrants={paidLeaveGrants}
             hourlyLeaveGrants={hourlyLeaveGrants}
             dates={dates}
-            onEditRequest={(date, record) => setEditingData({ date, record })}
+            onEditRequest={(date, record) => { setPrefillOvertimeEnd(undefined); setEditingData({ date, record }); }}
             onPrintRequest={(record) => handlePrint('LEAVE_REQUEST', record)}
           />
         </section>
@@ -475,8 +535,9 @@ const App: React.FC = () => {
           record={editingData.record}
           onSave={handleSaveRecord}
           onDelete={handleDeleteRecord}
-          onClose={() => setEditingData(null)}
+          onClose={() => { setEditingData(null); setPrefillOvertimeEnd(undefined); }}
           onPrintApplicationForm={(rec) => handlePrint('APPLICATION_FORM', rec)}
+          prefillOvertimeEnd={prefillOvertimeEnd}
         />
       )}
     </div>

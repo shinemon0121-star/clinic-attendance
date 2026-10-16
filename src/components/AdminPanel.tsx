@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { User, AppSettings, PaidLeaveGrant, HourlyLeaveGrant } from '../types';
+import React, { useState, useEffect } from 'react';
+import { User, AppSettings, PaidLeaveGrant, HourlyLeaveGrant, IcCardUser } from '../types';
 import { formatDateLocal, calcAutoPaidLeaveGrants, calcAutoHourlyLeaveGrants } from '../utils/dateUtils';
+import { fetchLatestUnconsumedTap, markTapConsumed } from '../utils/supabaseClient';
 
 interface Props {
   users: User[];
@@ -21,9 +22,12 @@ interface Props {
   onUpdateSettings: (s: AppSettings) => void;
   onBulkSync: () => void;
   onFetchFromSheet: () => void;
+  icCardUsers: IcCardUser[];
+  onRegisterIcCard: (idm: string, userId: string, label: string) => Promise<void>;
+  onDeleteIcCard: (idm: string) => Promise<void>;
 }
 
-type Tab = 'users' | 'settings' | 'leave' | 'hourlyLeave';
+type Tab = 'users' | 'settings' | 'leave' | 'hourlyLeave' | 'icCard';
 
 export default function AdminPanel({
   users,
@@ -44,6 +48,9 @@ export default function AdminPanel({
   onUpdateSettings,
   onBulkSync,
   onFetchFromSheet,
+  icCardUsers,
+  onRegisterIcCard,
+  onDeleteIcCard,
 }: Props) {
   const [tab, setTab] = useState<Tab>('users');
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -67,6 +74,12 @@ export default function AdminPanel({
   const [hourlyGrantDate, setHourlyGrantDate] = useState(formatDateLocal(new Date()));
   const [hourlyGrantAmount, setHourlyGrantAmount] = useState('');
   const [hourlyGrantDesc, setHourlyGrantDesc] = useState('');
+
+  // ICカード登録
+  const [icWatching, setIcWatching] = useState(false);
+  const [icDetectedTap, setIcDetectedTap] = useState<{ id: string; idm: string } | null>(null);
+  const [icAssignUserId, setIcAssignUserId] = useState(activeUserId);
+  const [icLabel, setIcLabel] = useState('');
 
   const handleAddUser = () => {
     if (!newName.trim()) return;
@@ -105,8 +118,36 @@ export default function AdminPanel({
     { id: 'users', label: 'スタッフ' },
     { id: 'leave', label: '有給管理' },
     { id: 'hourlyLeave', label: '時間休管理' },
+    { id: 'icCard', label: 'ICカード' },
     { id: 'settings', label: '設定' },
   ];
+
+  // 「次のタップを登録」待機中、未登録カードのタップを定期確認する
+  useEffect(() => {
+    if (!icWatching) return;
+    const check = async () => {
+      try {
+        const tap = await fetchLatestUnconsumedTap();
+        if (tap && !icCardUsers.some(c => c.idm === tap.idm)) {
+          setIcDetectedTap({ id: tap.id, idm: tap.idm });
+          setIcWatching(false);
+        }
+      } catch (e) {
+        console.error('ICカード検知エラー:', e);
+      }
+    };
+    check();
+    const interval = setInterval(check, 2000);
+    return () => clearInterval(interval);
+  }, [icWatching, icCardUsers]);
+
+  const handleConfirmIcCard = async () => {
+    if (!icDetectedTap) return;
+    await onRegisterIcCard(icDetectedTap.idm, icAssignUserId, icLabel);
+    await markTapConsumed(icDetectedTap.id);
+    setIcDetectedTap(null);
+    setIcLabel('');
+  };
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -571,6 +612,119 @@ export default function AdminPanel({
             </div>
           );
         })()}
+
+        {/* ─ ICカードタブ ─ */}
+        {tab === 'icCard' && (
+          <div className="space-y-4">
+            <div className="text-[10px] text-slate-400 bg-slate-50 rounded-lg px-3 py-2">
+              RC-S380等のカードリーダーにかざしたICカード（社員証など）と、スタッフを結びつけます。
+              登録しておくと、カードをかざすだけでそのスタッフの「今日を申請する」画面が開き、時間外終了時刻が自動入力されます。
+            </div>
+
+            {/* 新規登録 */}
+            <div className="border border-emerald-200 rounded-xl p-3 space-y-2">
+              <div className="text-xs font-bold text-emerald-700">新しいカードを登録</div>
+
+              {!icDetectedTap ? (
+                <>
+                  {!icWatching ? (
+                    <button
+                      onClick={() => setIcWatching(true)}
+                      className="w-full py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700"
+                    >
+                      次にかざされたカードを検知する
+                    </button>
+                  ) : (
+                    <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                      <span className="text-xs font-bold text-amber-700 animate-pulse">
+                        カードリーダーにカードをかざしてください…
+                      </span>
+                      <button
+                        onClick={() => setIcWatching(false)}
+                        className="text-[10px] font-bold px-2 py-1 bg-white border border-amber-300 text-amber-700 rounded-lg"
+                      >
+                        中止
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="space-y-2">
+                  <div className="text-[10px] text-slate-500">
+                    カードを検知しました（ID: {icDetectedTap.idm.slice(0, 4)}…{icDetectedTap.idm.slice(-4)}）
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block mb-1">このカードの持ち主</label>
+                    <select
+                      value={icAssignUserId}
+                      onChange={e => setIcAssignUserId(e.target.value)}
+                      className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs"
+                    >
+                      {sortedUsers.map(u => (
+                        <option key={u.id} value={u.id}>{u.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <input
+                    value={icLabel}
+                    onChange={e => setIcLabel(e.target.value)}
+                    placeholder="メモ（例：社員証）任意"
+                    className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleConfirmIcCard}
+                      className="flex-1 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700"
+                    >
+                      登録する
+                    </button>
+                    <button
+                      onClick={() => setIcDetectedTap(null)}
+                      className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200"
+                    >
+                      キャンセル
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 登録済み一覧 */}
+            <div>
+              <div className="text-xs font-bold text-slate-500 mb-1.5">登録済みカード</div>
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {icCardUsers.length === 0 ? (
+                  <div className="text-xs text-slate-400 text-center py-3">まだ登録がありません</div>
+                ) : (
+                  icCardUsers.map(c => {
+                    const u = users.find(u => u.id === c.userId);
+                    return (
+                      <div key={c.idm} className="flex items-center justify-between text-xs bg-slate-50 rounded-lg px-3 py-1.5">
+                        <div>
+                          <span className="font-bold text-slate-700">{u?.name ?? c.userId}</span>
+                          {c.label && <span className="text-slate-400 ml-2">{c.label}</span>}
+                          <span className="text-slate-300 ml-2 text-[10px]">
+                            {c.idm.slice(0, 4)}…{c.idm.slice(-4)}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`${u?.name ?? c.userId}のカード登録を解除しますか？`)) {
+                              onDeleteIcCard(c.idm);
+                            }
+                          }}
+                          className="text-[10px] font-bold px-2 py-1 bg-red-50 text-red-600 rounded-lg hover:bg-red-100"
+                        >
+                          解除
+                        </button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ─ 設定タブ ─ */}
         {tab === 'settings' && (

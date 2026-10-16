@@ -114,6 +114,22 @@ export interface HourlyLeaveGrant {
   description: string;
 }
 
+// ICカード（FeliCa等）と職員の対応付け
+export interface IcCardUser {
+  idm: string; // カードのIDm（固有ID）
+  userId: string;
+  label: string;
+  createdAt: string;
+}
+
+// ICカードをかざした記録（PC側の補助プログラムが書き込む）
+export interface IcCardTap {
+  id: string;
+  idm: string;
+  tappedAt: string; // ISO日時
+  consumed: boolean; // Webアプリ側で処理済みか
+}
+
 export interface ApplicationForm {
   id: string;
   userId: string;

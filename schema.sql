@@ -51,17 +51,39 @@ CREATE TABLE IF NOT EXISTS hourly_leave_grants (
 -- attendance_records に時間休の取得時間数（1〜7時間）を記録する列を追加
 ALTER TABLE attendance_records ADD COLUMN IF NOT EXISTS hourly_leave_hours NUMERIC;
 
+-- ICカード（RC-S380等）と職員の対応付け
+CREATE TABLE IF NOT EXISTS ic_card_users (
+  idm TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  label TEXT DEFAULT '',
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ICカードをかざした記録（PC側の補助プログラムが書き込む）
+CREATE TABLE IF NOT EXISTS ic_card_taps (
+  id TEXT PRIMARY KEY,
+  idm TEXT NOT NULL,
+  tapped_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  consumed BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
 -- Create indexes for faster queries
 CREATE INDEX IF NOT EXISTS idx_attendance_records_user_id ON attendance_records(user_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_records_date ON attendance_records(date);
 CREATE INDEX IF NOT EXISTS idx_paid_leave_grants_user_id ON paid_leave_grants(user_id);
 CREATE INDEX IF NOT EXISTS idx_hourly_leave_grants_user_id ON hourly_leave_grants(user_id);
+CREATE INDEX IF NOT EXISTS idx_ic_card_taps_tapped_at ON ic_card_taps(tapped_at);
 
 -- Disable RLS policies (allow public read/write for now)
 ALTER TABLE users DISABLE ROW LEVEL SECURITY;
 ALTER TABLE attendance_records DISABLE ROW LEVEL SECURITY;
 ALTER TABLE paid_leave_grants DISABLE ROW LEVEL SECURITY;
 ALTER TABLE hourly_leave_grants DISABLE ROW LEVEL SECURITY;
+ALTER TABLE ic_card_users DISABLE ROW LEVEL SECURITY;
+ALTER TABLE ic_card_taps DISABLE ROW LEVEL SECURITY;
 
 -- Grant access to anon/authenticated roles
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.hourly_leave_grants TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.ic_card_users TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.ic_card_taps TO anon, authenticated;

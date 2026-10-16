@@ -177,3 +177,66 @@ export async function deleteRecord(recordId: string) {
   const { error } = await supabase.from('attendance_records').delete().eq('id', recordId);
   if (error) throw error;
 }
+
+// ─── ICカード連携 ────────────────────────────────────────────────────────
+
+export async function loadIcCardUsersFromDB() {
+  const { data, error } = await supabase.from('ic_card_users').select('*');
+  if (error) {
+    console.error('❌ loadIcCardUsersFromDB error:', error);
+    throw error;
+  }
+  return (data || []).map((c: any) => ({
+    idm: c.idm,
+    userId: c.user_id,
+    label: c.label || '',
+    createdAt: c.created_at,
+  }));
+}
+
+export async function registerIcCardToDB(idm: string, userId: string, label: string) {
+  const { error } = await supabase.from('ic_card_users').upsert({
+    idm,
+    user_id: userId,
+    label,
+  });
+  if (error) {
+    console.error('❌ registerIcCardToDB error:', error);
+    throw error;
+  }
+}
+
+export async function deleteIcCardFromDB(idm: string) {
+  const { error } = await supabase.from('ic_card_users').delete().eq('idm', idm);
+  if (error) throw error;
+}
+
+// PC側の補助プログラムが、カードがかざされた直後からの未処理タップを取得する際に使う
+export async function fetchLatestUnconsumedTap() {
+  const { data, error } = await supabase
+    .from('ic_card_taps')
+    .select('*')
+    .eq('consumed', false)
+    .order('tapped_at', { ascending: false })
+    .limit(1);
+  if (error) {
+    console.error('❌ fetchLatestUnconsumedTap error:', error);
+    throw error;
+  }
+  const row = (data || [])[0];
+  if (!row) return null;
+  return {
+    id: row.id,
+    idm: row.idm,
+    tappedAt: row.tapped_at,
+    consumed: row.consumed,
+  };
+}
+
+export async function markTapConsumed(tapId: string) {
+  const { error } = await supabase.from('ic_card_taps').update({ consumed: true }).eq('id', tapId);
+  if (error) {
+    console.error('❌ markTapConsumed error:', error);
+    throw error;
+  }
+}

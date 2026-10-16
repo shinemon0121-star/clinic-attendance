@@ -9,6 +9,7 @@ interface Props {
   onDelete?: () => void;
   onClose: () => void;
   onPrintApplicationForm?: (rec: AttendanceRecord) => void;
+  prefillOvertimeEnd?: string; // ICカードタップなどから終了時刻を自動入力する場合
 }
 
 const ALL_SHIFTS = Object.values(ShiftType);
@@ -28,7 +29,7 @@ const REQUIRES_APPLICATION = new Set([
   // Note: PUBLIC_HOLIDAY is not included - it's a simple rest day marker
 ]);
 
-export default function EditRecordModal({ date, record, onSave, onDelete, onClose, onPrintApplicationForm }: Props) {
+export default function EditRecordModal({ date, record, onSave, onDelete, onClose, onPrintApplicationForm, prefillOvertimeEnd }: Props) {
   const dateStr = formatDateLocal(date);
   const isRestDay = isDefaultRestDay(date);
   const defaultShift = record?.shiftType ?? (isRestDay ? ShiftType.HOLIDAY_WORK : ShiftType.DAY);
@@ -39,7 +40,9 @@ export default function EditRecordModal({ date, record, onSave, onDelete, onClos
     return '17:00';
   };
   const [overtimeStart, setOvertimeStart] = useState(record?.overtimeStart ?? getDefaultOvertimeStart(defaultShift));
-  const [overtimeEnd, setOvertimeEnd] = useState(record?.overtimeEnd ?? (defaultShift === ShiftType.DAY_AND_NIGHT ? '15:45' : ''));
+  const [overtimeEnd, setOvertimeEnd] = useState(
+    prefillOvertimeEnd ?? record?.overtimeEnd ?? (defaultShift === ShiftType.DAY_AND_NIGHT ? '15:45' : '')
+  );
   const [overtimeDesc, setOvertimeDesc] = useState(record?.overtimeDescription ?? '');
 
   // 申請書用フィールド
@@ -59,13 +62,13 @@ export default function EditRecordModal({ date, record, onSave, onDelete, onClos
     const s = record?.shiftType ?? (isDefaultRestDay(date) ? ShiftType.HOLIDAY_WORK : ShiftType.DAY);
     setShiftType(s);
     setOvertimeStart(record?.overtimeStart ?? getDefaultOvertimeStart(s));
-    setOvertimeEnd(record?.overtimeEnd ?? (s === ShiftType.DAY_AND_NIGHT ? '15:45' : ''));
+    setOvertimeEnd(prefillOvertimeEnd ?? record?.overtimeEnd ?? (s === ShiftType.DAY_AND_NIGHT ? '15:45' : ''));
     setOvertimeDesc(record?.overtimeDescription ?? '');
     setApplicationReason(record?.applicationReason ?? '');
     setApplicationStartDate(record?.applicationStartDate ?? dateStr);
     setApplicationEndDate(record?.applicationEndDate ?? dateStr);
     setHourlyLeaveHours(record?.hourlyLeaveHours ?? null);
-  }, [record, dateStr]);
+  }, [record, dateStr, prefillOvertimeEnd]);
 
 
   const requiresApplication = REQUIRES_APPLICATION.has(shiftType);
