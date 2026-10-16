@@ -27,11 +27,12 @@ CREATE TABLE IF NOT EXISTS attendance_records (
 );
 
 -- Create paid_leave_grants table
+-- grant_amount は NUMERIC（半日=0.5日などの小数調整を保存できるようにするため）
 CREATE TABLE IF NOT EXISTS paid_leave_grants (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   grant_date TEXT NOT NULL,
-  grant_amount INTEGER NOT NULL,
+  grant_amount NUMERIC NOT NULL,
   description TEXT DEFAULT '',
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
