@@ -90,6 +90,9 @@ def main():
             idm = tag.identifier.hex()
             now = time.time()
             if idm == last_idm and (now - last_time) < COOLDOWN_SECONDS:
+                remaining = COOLDOWN_SECONDS - (now - last_time)
+                print(f"（同じカードです。あと{remaining:.0f}秒待ってから、もう一度かざしてください）")
+                time.sleep(1)
                 continue  # 同じカードが乗ったままの連続検知を無視
 
             last_idm = idm
