@@ -26,7 +26,9 @@ const REQUIRES_APPLICATION = new Set([
   ShiftType.ABSENCE,
   ShiftType.OTHER,
   ShiftType.SUMMER_LEAVE,
+  ShiftType.TRIP_HALF_PAID_LEAVE,
   // Note: PUBLIC_HOLIDAY is not included - it's a simple rest day marker
+  // Note: TRIP_HALF_WORK is not included - 出勤扱いのため申請書は不要
 ]);
 
 export default function EditRecordModal({ date, record, onSave, onDelete, onClose, onPrintApplicationForm, prefillOvertimeEnd }: Props) {

@@ -229,7 +229,7 @@ export function calculatePaidLeaveBalance(
   const used = userRecs.reduce((sum, r) => {
     let u = 0;
     if (r.shiftType === ShiftType.PAID_LEAVE) u += 1;
-    if (r.shiftType === ShiftType.HALF_PAID_LEAVE) u += 0.5;
+    if (r.shiftType === ShiftType.HALF_PAID_LEAVE || r.shiftType === ShiftType.TRIP_HALF_PAID_LEAVE) u += 0.5;
     if (r.hourlyLeaveHours) u += r.hourlyLeaveHours / 8;
     return sum + u;
   }, 0);

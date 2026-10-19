@@ -29,6 +29,7 @@ const RED_SHIFTS = new Set([
   ShiftType.SPECIAL_LEAVE,
   ShiftType.ABSENCE,
   ShiftType.SUMMER_LEAVE,
+  ShiftType.TRIP_HALF_PAID_LEAVE,
 ]);
 
 // 出勤扱いの区分
@@ -40,6 +41,7 @@ const WORK_SHIFTS = new Set([
   ShiftType.ON_CALL,
   ShiftType.TRAINING,
   ShiftType.TRIP,
+  ShiftType.TRIP_HALF_WORK,
 ]);
 
 function StatCard({
@@ -113,7 +115,7 @@ export default function AttendanceTable({
       totalLateNightOtMin += lateNight;
       if (rec.shiftType === ShiftType.HOLIDAY_WORK) holidayWorkDays++;
       if (rec.shiftType === ShiftType.PAID_LEAVE)      paidLeaveDays++;
-      if (rec.shiftType === ShiftType.HALF_PAID_LEAVE) halfPaidLeaveDays++;
+      if (rec.shiftType === ShiftType.HALF_PAID_LEAVE || rec.shiftType === ShiftType.TRIP_HALF_PAID_LEAVE) halfPaidLeaveDays++;
       if (rec.shiftType === ShiftType.SUBSTITUTE_LEAVE) subLeaveDays++;
       if (rec.hourlyLeaveHours) periodHourlyLeaveHours += rec.hourlyLeaveHours;
     }

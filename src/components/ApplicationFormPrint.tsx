@@ -84,7 +84,7 @@ export default function ApplicationFormPrint({ record, user, allRecords, paidLea
 
   // 休暇の種類チェック
   const isPaidLeave = record.shiftType === ShiftType.PAID_LEAVE;
-  const isHalfPaidLeave = record.shiftType === ShiftType.HALF_PAID_LEAVE;
+  const isHalfPaidLeave = record.shiftType === ShiftType.HALF_PAID_LEAVE || record.shiftType === ShiftType.TRIP_HALF_PAID_LEAVE;
   const isSpecialLeave = record.shiftType === ShiftType.SPECIAL_LEAVE;
   const isSummerLeave = record.shiftType === ShiftType.SUMMER_LEAVE;
   const isLate = record.shiftType === ShiftType.LATE;

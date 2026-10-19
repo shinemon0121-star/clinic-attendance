@@ -18,6 +18,7 @@ export default function ApplicationFormsPrint({ users, allRecords, paidLeaveGran
     const applicationShiftTypes = [
       'PAID_LEAVE',
       'HALF_PAID_LEAVE',
+      'TRIP_HALF_PAID_LEAVE',
       'ILLNESS',
       'SPECIAL_LEAVE',
       'SUMMER_LEAVE',

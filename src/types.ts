@@ -17,6 +17,8 @@ export enum ShiftType {
   EARLY_LEAVE = 'EARLY_LEAVE',
   OTHER = 'OTHER',
   SUMMER_LEAVE = 'SUMMER_LEAVE',
+  TRIP_HALF_WORK = 'TRIP_HALF_WORK', // 半日出張+半日出勤（終日出勤扱い、有給には影響なし）
+  TRIP_HALF_PAID_LEAVE = 'TRIP_HALF_PAID_LEAVE', // 半日出張+半日有給（半日有給と同様に-0.5日）
 }
 
 export const SHIFT_LABELS: Record<ShiftType, string> = {
@@ -38,6 +40,8 @@ export const SHIFT_LABELS: Record<ShiftType, string> = {
   [ShiftType.EARLY_LEAVE]: '早退',
   [ShiftType.OTHER]: 'その他',
   [ShiftType.SUMMER_LEAVE]: '夏期休暇',
+  [ShiftType.TRIP_HALF_WORK]: '半日出張+出勤',
+  [ShiftType.TRIP_HALF_PAID_LEAVE]: '半日出張+有給',
 };
 
 export const SHIFT_COLORS: Record<ShiftType, string> = {
@@ -59,6 +63,8 @@ export const SHIFT_COLORS: Record<ShiftType, string> = {
   [ShiftType.EARLY_LEAVE]: 'bg-orange-100 text-orange-800',
   [ShiftType.OTHER]: 'bg-slate-100 text-slate-800',
   [ShiftType.SUMMER_LEAVE]: 'bg-amber-100 text-amber-800',
+  [ShiftType.TRIP_HALF_WORK]: 'bg-lime-100 text-lime-800',
+  [ShiftType.TRIP_HALF_PAID_LEAVE]: 'bg-teal-100 text-teal-800',
 };
 
 export interface AttendanceRecord {
