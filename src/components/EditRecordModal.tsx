@@ -14,6 +14,17 @@ interface Props {
 
 const ALL_SHIFTS = Object.values(ShiftType);
 
+// 業務内容・備考のよく使う定型文（選択すれば入力できるが、自由入力もそのまま可能）
+const OVERTIME_DESC_PRESETS = [
+  '心臓血管カテーテル業務',
+  'ME業務',
+  'ペースメーカ業務',
+  '手術室業務',
+  '緊急カテーテル業務',
+  '緊急ペースメーカ業務',
+  '緊急手術業務',
+];
+
 // 申請書が必要な勤務区分
 const REQUIRES_APPLICATION = new Set([
   ShiftType.PAID_LEAVE,
@@ -202,11 +213,27 @@ export default function EditRecordModal({ date, record, onSave, onDelete, onClos
 
               <div>
                 <label className="text-xs font-bold text-slate-500 block mb-1.5">業務内容・備考</label>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {OVERTIME_DESC_PRESETS.map(preset => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setOvertimeDesc(preset)}
+                      className={`text-[11px] px-2.5 py-1 rounded-full font-bold border transition-all ${
+                        overtimeDesc === preset
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-slate-600 border-slate-200 hover:border-blue-400'
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
                 <textarea
                   value={overtimeDesc}
                   onChange={e => setOvertimeDesc(e.target.value)}
                   rows={2}
-                  placeholder="例：緊急透析対応、翌日症例準備 など"
+                  placeholder="上から選ぶか、直接入力してください（例：緊急透析対応、翌日症例準備 など）"
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
                 />
               </div>
