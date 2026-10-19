@@ -65,44 +65,65 @@ def record_tap(idm: str) -> bool:
             timeout=10,
         )
     except requests.RequestException as e:
-        print(f"⚠️ 通信エラー: {e}")
+        print(f"⚠️ 通信エラー: {e}", flush=True)
         return False
 
     if res.status_code >= 300:
-        print(f"⚠️ Supabase書き込み失敗: {res.status_code} {res.text}")
+        print(f"⚠️ Supabase書き込み失敗: {res.status_code} {res.text}", flush=True)
         return False
     return True
 
 
 def main():
-    print("RC-S380 タップ連携ブリッジを起動しました。")
-    print("カードリーダーにICカードをかざしてください（Ctrl+Cで終了）。\n")
+    print("RC-S380 タップ連携ブリッジを起動しました。", flush=True)
+
+    try:
+        clf = nfc.ContactlessFrontend("usb")
+    except Exception as e:
+        print(f"❌ カードリーダーに接続できませんでした: {e}", flush=True)
+        print("   USB接続と、Zadigでのドライバ設定（libusb-win32）を確認してください。", flush=True)
+        return
+
+    if not clf:
+        print("❌ カードリーダーが見つかりませんでした（USB接続・ドライバ設定を確認してください）。", flush=True)
+        return
+
+    print("✅ カードリーダーに接続しました。カードをかざしてください（Ctrl+Cで終了）。\n", flush=True)
 
     last_idm = None
     last_time = 0.0
 
-    with nfc.ContactlessFrontend("usb") as clf:
-        while True:
-            tag = clf.connect(rdwr={"on-connect": lambda tag: False})
-            if tag is None:
-                continue
+    try:
+        with clf:
+            while True:
+                try:
+                    tag = clf.connect(rdwr={"on-connect": lambda tag: False})
+                except Exception as e:
+                    print(f"⚠️ 読み取りエラー: {e}", flush=True)
+                    time.sleep(2)
+                    continue
 
-            idm = tag.identifier.hex()
-            now = time.time()
-            if idm == last_idm and (now - last_time) < COOLDOWN_SECONDS:
-                remaining = COOLDOWN_SECONDS - (now - last_time)
-                print(f"（同じカードです。あと{remaining:.0f}秒待ってから、もう一度かざしてください）")
+                if tag is None:
+                    continue
+
+                idm = tag.identifier.hex()
+                now = time.time()
+                if idm == last_idm and (now - last_time) < COOLDOWN_SECONDS:
+                    remaining = COOLDOWN_SECONDS - (now - last_time)
+                    print(f"（同じカードです。あと{remaining:.0f}秒待ってから、もう一度かざしてください）", flush=True)
+                    time.sleep(1)
+                    continue  # 同じカードが乗ったままの連続検知を無視
+
+                last_idm = idm
+                last_time = now
+
+                print(f"📇 カード検知: {idm}", flush=True)
+                if record_tap(idm):
+                    print("✅ 記録しました。ブラウザを開きます…\n", flush=True)
+                    webbrowser.open(APP_URL)
                 time.sleep(1)
-                continue  # 同じカードが乗ったままの連続検知を無視
-
-            last_idm = idm
-            last_time = now
-
-            print(f"📇 カード検知: {idm}")
-            if record_tap(idm):
-                print("✅ 記録しました。ブラウザを開きます…\n")
-                webbrowser.open(APP_URL)
-            time.sleep(1)
+    except KeyboardInterrupt:
+        print("終了します。", flush=True)
 
 
 if __name__ == "__main__":
