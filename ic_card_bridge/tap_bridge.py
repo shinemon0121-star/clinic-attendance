@@ -27,12 +27,20 @@ PC起動時に自動で立ち上げたい場合は、Windowsのタスクスケ�
 「ログオン時に実行」として登録してください。
 """
 
+import sys
 import time
 import webbrowser
 from datetime import datetime
 
 import nfc
 import requests
+
+# Windows(cp932)だと絵文字で print が落ちるため、出力をUTF-8に固定する
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
 
 # ── 設定 ──────────────────────────────────────────────────────────────
 SUPABASE_URL = "https://fjcvfytvwzfnmzqenijd.supabase.co"
