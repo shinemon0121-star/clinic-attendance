@@ -111,7 +111,8 @@ def main():
                     time.sleep(2)
                     continue
 
-                if tag is None:
+                # connect() はタグが無い場合 None、特殊な状態で True/False を返すことがある
+                if tag is None or not hasattr(tag, "identifier"):
                     continue
 
                 idm = tag.identifier.hex()
