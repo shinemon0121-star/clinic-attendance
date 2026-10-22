@@ -76,15 +76,16 @@ CREATE INDEX IF NOT EXISTS idx_paid_leave_grants_user_id ON paid_leave_grants(us
 CREATE INDEX IF NOT EXISTS idx_hourly_leave_grants_user_id ON hourly_leave_grants(user_id);
 CREATE INDEX IF NOT EXISTS idx_ic_card_taps_tapped_at ON ic_card_taps(tapped_at);
 
--- Disable RLS policies (allow public read/write for now)
-ALTER TABLE users DISABLE ROW LEVEL SECURITY;
-ALTER TABLE attendance_records DISABLE ROW LEVEL SECURITY;
-ALTER TABLE paid_leave_grants DISABLE ROW LEVEL SECURITY;
-ALTER TABLE hourly_leave_grants DISABLE ROW LEVEL SECURITY;
-ALTER TABLE ic_card_users DISABLE ROW LEVEL SECURITY;
-ALTER TABLE ic_card_taps DISABLE ROW LEVEL SECURITY;
-
--- Grant access to anon/authenticated roles
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.hourly_leave_grants TO anon, authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.ic_card_users TO anon, authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.ic_card_taps TO anon, authenticated;
+-- Enable RLS + allow-all policy（Supabase「rls_disabled_in_public」警告対策。2026-10 変更）
+-- Supabase Auth 未使用のため anon/authenticated への権限は従来通りフルオープン
+DO $$
+DECLARE t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['users','attendance_records','paid_leave_grants','hourly_leave_grants','ic_card_users','ic_card_taps']
+  LOOP
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
+    EXECUTE format('DROP POLICY IF EXISTS "allow_all_anon_authenticated" ON public.%I', t);
+    EXECUTE format('CREATE POLICY "allow_all_anon_authenticated" ON public.%I FOR ALL TO anon, authenticated USING (true) WITH CHECK (true)', t);
+    EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.%I TO anon, authenticated', t);
+  END LOOP;
+END $$;

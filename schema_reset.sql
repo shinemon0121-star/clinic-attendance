@@ -44,10 +44,13 @@ CREATE INDEX idx_attendance_records_user_id ON attendance_records(user_id);
 CREATE INDEX idx_attendance_records_date ON attendance_records(date);
 CREATE INDEX idx_paid_leave_grants_user_id ON paid_leave_grants(user_id);
 
--- Disable RLS for development
-ALTER TABLE users DISABLE ROW LEVEL SECURITY;
-ALTER TABLE attendance_records DISABLE ROW LEVEL SECURITY;
-ALTER TABLE paid_leave_grants DISABLE ROW LEVEL SECURITY;
+-- Enable RLS + allow-all policy（Supabase「rls_disabled_in_public」警告対策）
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE attendance_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE paid_leave_grants ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "allow_all_anon_authenticated" ON users FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all_anon_authenticated" ON attendance_records FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all_anon_authenticated" ON paid_leave_grants FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 
 -- Insert initial users
 INSERT INTO users (id, name, department, role, joined_date) VALUES
